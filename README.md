@@ -42,7 +42,8 @@ Download the latest release from GitHub and pick _one_ of the following methods 
 1. Double-click the .apworld file
 2. Use `ArchipelagoLauncher.exe` and click Install APWorld
 3. Place `spyro_dotd.apworld` into your Archipelago `custom_worlds` folder
-After completing one of these three methods, it may be wise to close and re-open any Archipelago windows to ensure the world is able to be recognized by Archipelago.
+
+#### After completing one of these three methods, it may be wise to close and re-open any Archipelago windows to ensure the world is able to be recognized by Archipelago.
 
 
 ---
