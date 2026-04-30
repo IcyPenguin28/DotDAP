@@ -34,30 +34,15 @@ Defeat Malefor!
 
   * Game ID: `SLUS-21820`
   * This is important because this implementation reads from and writes to certain memory addresses that may differ between international versions
-* Python 3.12.10 *(only required for manual install)*
 
 ---
 
 ## Installation
+Download the latest release from GitHub and pick _one_ of the following methods below:
+1. Double-click the .apworld file
+2. Use `ArchipelagoLauncher.exe` and click Install APWorld
+3. Place `spyro_dotd.apworld` into your Archipelago `custom_worlds` folder
 
-### Option A: `.apworld` (Recommended)
-
-1. Download the latest release
-2. Place `spyro_dotd.apworld` into your Archipelago `worlds` folder
-3. Launch Archipelago
-
----
-
-### Option B: Manual Install
-
-1. Extract this repository
-2. Copy the `worlds/spyro_dotd` folder into:
-
-```
-Archipelago/worlds/
-```
-
-3. Launch Archipelago
 
 ---
 
