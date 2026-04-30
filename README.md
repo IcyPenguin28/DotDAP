@@ -102,6 +102,15 @@ Archipelago/worlds/
   * Archipelago server
   * PCSX2
 
+### My max health/max mana is not increasing, even when I have 4+ Health/Mana Gems!
+* If everything is working correctly, you will not see the update to your HP/mana bars until you recover your HP/mana.
+
+### The game says I have enough (4-5) Red Health Crystals/Green Magic Crystals when I've received zero so far!
+* This is simply a quirk of the UI. It perceives zero as having a full bar of these crystals.
+
+### I got 1000 EXP from a blue gem cluster! Shouldn't that have been cancelled out?
+* If everything is working correctly, this only happens when one or both dragons have less than 1000 unspent EXP. In this case, after one second has passed, the value should correct itself. To see if the value was updated properly, swap dragons to update their HUD.
+
 ---
 
 ## Credits
