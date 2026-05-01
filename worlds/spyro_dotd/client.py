@@ -563,43 +563,48 @@ async def goal_watcher(ctx: DotDContext):
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
-async def main():
-    ctx = DotDContext(None, None)
+def main(*args: str):
+    async def _main(connect: str | None, password: str | None):
+        ctx = DotDContext(None, None)
 
-    # Version check before doing anything else
-    if ctx.memory.is_connected:
-        ctx._game_version_ok = ctx.check_game_version()
-        if not ctx._game_version_ok:
-            print("Wrong game version detected. Client will run but memory operations are disabled.")
-            print("Please load the NTSC-U version of Dawn of the Dragon and restart the client.")
-    else:
-        # Not connected to PCSX2 yet; the watchdog will check version when it connects
-        ctx._game_version_ok = False
+        # Version check before doing anything else
+        if ctx.memory.is_connected:
+            ctx._game_version_ok = ctx.check_game_version()
+            if not ctx._game_version_ok:
+                print("Wrong game version detected. Client will run but memory operations are disabled.")
+                print("Please load the NTSC-U version of Dawn of the Dragon and restart the client.")
+        else:
+            # Not connected to PCSX2 yet; the watchdog will check version when it connects
+            ctx._game_version_ok = False
 
-    ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
-    watcher_task = asyncio.create_task(location_watcher(ctx), name="location watcher")
-    health_gem_task = asyncio.create_task(health_gem_setter(ctx), name="health gem task")
-    mana_gem_task = asyncio.create_task(mana_gem_setter(ctx), name="mana gem task")
-    death_task = asyncio.create_task(death_watcher(ctx), name="death watcher")
-    goal_task = asyncio.create_task(goal_watcher(ctx), name="goal watcher")
-    watchdog_task = asyncio.create_task(emulator_watchdog(ctx), name="emulator watchdog")
+        ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
+        watcher_task = asyncio.create_task(location_watcher(ctx), name="location watcher")
+        health_gem_task = asyncio.create_task(health_gem_setter(ctx), name="health gem task")
+        mana_gem_task = asyncio.create_task(mana_gem_setter(ctx), name="mana gem task")
+        death_task = asyncio.create_task(death_watcher(ctx), name="death watcher")
+        goal_task = asyncio.create_task(goal_watcher(ctx), name="goal watcher")
+        watchdog_task = asyncio.create_task(emulator_watchdog(ctx), name="emulator watchdog")
 
-    if gui_enabled:
-        ctx.run_gui()
-    ctx.run_cli()
+        if gui_enabled:
+            ctx.run_gui()
+        ctx.run_cli()
 
-    await ctx.exit_event.wait()
+        await ctx.exit_event.wait()
 
-    # Cancel all background tasks
-    for task in (watcher_task, health_gem_task, mana_gem_task, death_task, goal_task, watchdog_task):
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+        # Cancel all background tasks
+        for task in (watcher_task, health_gem_task, mana_gem_task, death_task, goal_task, watchdog_task):
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
-    await ctx.shutdown()
+        await ctx.shutdown()
+
+    # TODO: Handle command line args
+    asyncio.run(_main(None, None))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    main(*sys.argv[1:])
