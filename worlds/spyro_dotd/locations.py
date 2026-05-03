@@ -184,7 +184,17 @@ LOCATION_NAME_TO_ID = {
     "The Destroyer Armor Chest 1/2": 415,
     "The Destroyer Armor Chest 2/2": 416,
     "Burned Lands Armor Chest 1/2": 417,
-    "Burned Lands Armor Chest 2/2": 418
+    "Burned Lands Armor Chest 2/2": 418,
+    "Catacombs Cleared": 501,
+    "Twilight Falls Cleared": 502,
+    "Valley of Avalar Cleared": 503,
+    "Dragon City Cleared": 504,
+    "Attack of the Golem Cleared": 505,
+    "Ruins of Warfang Cleared": 506,
+    "The Dam Cleared": 507,
+    "The Destroyer Cleared": 508,
+    "Burned Lands Cleared": 509,
+    "Floating Islands Cleared": 510
 }
 
 # If the flag at one of these addresses == 1, then the item at the location has been collected
@@ -353,7 +363,17 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0xa3e1f4: "The Destroyer Armor Chest 1/2",
     0xa3e218: "The Destroyer Armor Chest 2/2",
     0xa3f070: "Burned Lands Armor Chest 1/2",
-    0xa3f0b8: "Burned Lands Armor Chest 2/2"
+    0xa3f0b8: "Burned Lands Armor Chest 2/2",
+    0x9fecd3: "Catacombs Cleared",
+    0x9fecd4: "Twilight Falls Cleared",
+    0x9fecd5: "Valley of Avalar Cleared",
+    0x9fecd6: "Dragon City Cleared",
+    0x9fecd7: "Attack of the Golem Cleared",
+    0x9fecd8: "Ruins of Warfang Cleared",
+    0x9fecda: "The Dam Cleared",
+    0x9fecdb: "The Destroyer Cleared",
+    0x9fecdc: "Burned Lands Cleared",
+    0x9fecdd: "Floating Islands Cleared",
 }
 
 # Each Location instance must correctly report the "game" it belongs to.
@@ -407,7 +427,8 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Catacombs Blue Gem 10/10",
             "Catacombs Health Gem 1/1",
             "Catacombs Mana Gem 1/1",
-            "Catacombs Elite Enemy 1/1"
+            "Catacombs Elite Enemy 1/1",
+            "Catacombs Cleared"
         ]
     )
 
@@ -425,7 +446,8 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Twilight Falls Mana Gem 2/2",
             "Twilight Falls Elite Enemy 1/1",
             "Twilight Falls Armor Chest 1/2",
-            "Twilight Falls Armor Chest 2/2"
+            "Twilight Falls Armor Chest 2/2",
+            "Twilight Falls Cleared"
         ]
     )
 
@@ -461,6 +483,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Valley of Avalar Armor Chest 2/4",
             "Valley of Avalar Armor Chest 3/4",
             "Valley of Avalar Armor Chest 4/4",
+            "Valley of Avalar Cleared"
         ]
     )
 
@@ -483,6 +506,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Dragon City Armor Chest 1/3",
             "Dragon City Armor Chest 2/3",
             "Dragon City Armor Chest 3/3",
+            "Dragon City Cleared"
         ]
     )
 
@@ -491,6 +515,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Attack of the Golem Health Gem 1/1",
             "Attack of the Golem Mana Gem 1/1",
             "Attack of the Golem Armor Chest 1/1",
+            "Attack of the Golem Cleared"
         ]
     )
 
@@ -518,6 +543,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Ruins of Warfang Elite Enemy 1/1",
             "Ruins of Warfang Armor Chest 1/2",
             "Ruins of Warfang Armor Chest 2/2",
+            "Ruins of Warfang Cleared"
         ]
     )
 
@@ -535,6 +561,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "The Dam Elite Enemy 1/1",
             "The Dam Armor Chest 1/2",
             "The Dam Armor Chest 2/2",
+            "The Dam Cleared"
         ]
     )
 
@@ -554,6 +581,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "The Destroyer Mana Gem 2/2",
             "The Destroyer Armor Chest 1/2",
             "The Destroyer Armor Chest 2/2",
+            "The Destroyer Cleared"
         ]
     )
 
@@ -577,6 +605,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Burned Lands Elite Enemy 1/1",
             "Burned Lands Armor Chest 1/2",
             "Burned Lands Armor Chest 2/2",
+            "Burned Lands Cleared"
         ]
     )
 
@@ -604,7 +633,8 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Floating Islands Health Gem 2/2",
             "Floating Islands Mana Gem 1/1",
             "Floating Islands Elite Enemy 1/2",
-            "Floating Islands Elite Enemy 2/2"
+            "Floating Islands Elite Enemy 2/2",
+            "Floating Islands Cleared"
         ]
     )
 

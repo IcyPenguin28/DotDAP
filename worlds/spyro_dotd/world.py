@@ -31,7 +31,7 @@ class DotDWorld(World):
 
     # There is always one region that the generator starts from & assumes you can always go back to.
     # This defaults to "Menu", but you can change it by overriding origin_region_name.
-    origin_region_name = "Catacombs"
+    origin_region_name = "Menu"
 
     # Our world class must have certain functions ("steps") that get called during generation.
     # The main ones are: create_regions, set_rules, and create_items.
@@ -40,8 +40,8 @@ class DotDWorld(World):
         regions.create_and_connect_regions(self)
         locations.create_all_locations(self)
     
-    # def set_rules(self) -> None:
-        # rules.set_all_rules(self)
+    def set_rules(self) -> None:
+        rules.set_all_rules(self)
     
     def create_items(self) -> None:
         items.create_all_items(self)

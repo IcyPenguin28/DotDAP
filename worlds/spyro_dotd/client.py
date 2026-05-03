@@ -4,12 +4,14 @@ import asyncio
 import time
 from typing import Dict, Set, Optional
 
+from enum import Enum
+
 from worlds.AutoWorld import World
 from NetUtils import ClientStatus
 from CommonClient import CommonContext, ClientCommandProcessor, server_loop, gui_enabled
 
 
-from .items import DotDItem
+from .items import DotDItem, ITEM_NAME_TO_ID
 from .options import DotDOptions
 from .world import DotDWorld
 from .locations import LOCATION_FLAG_ADDRESS_TO_NAME, LOCATION_NAME_TO_ID
@@ -27,6 +29,8 @@ ADDR_SPYRO_CONTROLLER = 0x98C195
 ADDR_CYNDER_CONTROLLER = 0x98C196
 ADDR_HEALTH_GEMS_COLLECTED = 0x9FEB6C
 ADDR_MANA_GEMS_COLLECTED = 0x9FEB7C
+ADDR_CURRENT_LEVEL = 0x9FE274
+ADDR_NEXT_LEVEL = 0x9FE278
 
 # EXP Buckets
 ADDR_SPYRO_UNSPENT_EXP = 0x9FEB18
@@ -84,6 +88,22 @@ ARMOR_NAME_TO_ADDRESS = {
     "Cynder Tail Fury": ADDR_CYNDER_TAIL_FURY
 }
 
+LEVEL_ID_TO_INDEX = {
+    b"\x0A": 0,
+    b"\x14": 1,
+    b"\x1E": 2,
+    b"\x28": 3,
+    b"\x32": 4,
+    b"\x3C": 5,
+    b"\x50": 6,
+    b"\x5A": 7,
+    b"\x64": 8,
+    b"\x6E": 9,
+    b"\x78": 10, 
+}
+
+INDEX_TO_LEVEL_ID = {v: k for k, v in LEVEL_ID_TO_INDEX.items()}
+
 ARMOR_NAME_TO_SCRATCH_ADDRESS = {
     name: addr + 0x05 for name, addr in ARMOR_NAME_TO_ADDRESS.items()
 }
@@ -95,7 +115,7 @@ EXPECTED_GAME_ID = "SLUS-21820"
 # Patching
 ADDR_ARMOR_OWNERSHIP_CHECK_HOOK = 0x0039C2CC
 ADDR_ARMOR_OWNERSHIP_CHECK_ROUTINE = 0x01FFED38
-
+# ADDR_SPYRO_FLIGHT_MIRROR_HOOK_W1 = 
 
 class MemoryReader:
     def __init__(self):
@@ -182,6 +202,9 @@ class DotDContext(CommonContext):
         self._total_blue_gems: int = 0
         self._total_health_gems: int = 0
         self._total_mana_gems: int = 0
+
+        self._received_keys:Set[str] = set()
+        self.levels_unlocked:list[bool] = [True, False, False, False, False, False, False, False, False, False, False]
 
         # Item state variables
         self._session_blue_gems_at_connect: int = 0
@@ -302,6 +325,8 @@ class DotDContext(CommonContext):
             self._total_mana_gems += 1
         elif any(k in item_name for k in ("Tail", "Bracers", "Helmet")):
             self._received_armor.add(item_name)
+        elif "Key" in item_name:
+            self._received_keys.add(item_name)
         # Instant consumables (Health Gem S / Mana Gem S) are handled inside
         # handle_receive_item because they are meant to be applied once per
         # receipt, not re-applied on reconnect.
@@ -334,6 +359,10 @@ class DotDContext(CommonContext):
             scratch_addr = ARMOR_NAME_TO_SCRATCH_ADDRESS.get(armor_name)
             if scratch_addr:
                 self.memory.write_bytes(scratch_addr, b"\x01")
+        
+        for key in self._received_keys:
+            index = ITEM_NAME_TO_ID[key] - 30
+            self.levels_unlocked[index] = True
 
     # ------------------------------------------------------------------
     # Patches
@@ -543,6 +572,25 @@ async def death_watcher(ctx: DotDContext):
             print(f"Error in death_watcher: {e}")
         await asyncio.sleep(0.1)
 
+async def level_redirector(ctx: DotDContext):
+    while True:
+        try:
+            if ctx.memory.is_connected and ctx._game_version_ok:
+                next_level = ctx.memory.read_bytes(ADDR_NEXT_LEVEL, 1)
+                if next_level and next_level not in (b"\x00", b"\xFF"):
+                    index = LEVEL_ID_TO_INDEX.get(next_level)
+                    if index is not None and not ctx.levels_unlocked[index]:
+                        # Find the highest unlocked level index
+                        highest_unlocked = 0
+                        for i, unlocked in enumerate(ctx.levels_unlocked):
+                            if unlocked:
+                                highest_unlocked = i
+                        fallback_level_id = INDEX_TO_LEVEL_ID[highest_unlocked]
+                        ctx.memory.write_bytes(ADDR_NEXT_LEVEL, fallback_level_id)
+        except Exception as e:
+            print(f"Error in level_redirector: {e}")
+        await asyncio.sleep(0.05)
+
 
 async def goal_watcher(ctx: DotDContext):
     """
@@ -584,6 +632,7 @@ def main(*args: str):
         death_task = asyncio.create_task(death_watcher(ctx), name="death watcher")
         goal_task = asyncio.create_task(goal_watcher(ctx), name="goal watcher")
         watchdog_task = asyncio.create_task(emulator_watchdog(ctx), name="emulator watchdog")
+        redirector_task = asyncio.create_task(level_redirector(ctx), name="redirector task")
 
         if gui_enabled:
             ctx.run_gui()
@@ -592,7 +641,7 @@ def main(*args: str):
         await ctx.exit_event.wait()
 
         # Cancel all background tasks
-        for task in (watcher_task, health_gem_task, mana_gem_task, death_task, goal_task, watchdog_task):
+        for task in (watcher_task, health_gem_task, mana_gem_task, death_task, goal_task, watchdog_task, redirector_task):
             task.cancel()
             try:
                 await task

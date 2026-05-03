@@ -41,8 +41,17 @@ ITEM_NAME_TO_ID = {
     "Spyro's Elements": 27,
     "Cynder's Elements": 28,
     "Wall Climbing": 29,
-    "Wall Running": 30
-
+    "Wall Running": 30,
+    "Twilight Falls Key": 31,
+    "Valley of Avalar Key": 32,
+    "Dragon City Key": 33,
+    "Attack of the Golem Key": 34,
+    "Ruins of Warfang Key": 35,
+    "The Dam Key": 36,
+    "The Destroyer Key": 37,
+    "Burned Lands Key": 38,
+    "Floating Islands Key": 39,
+    "Malefor's Lair Key": 40
 }
 
 # Items should havea defined default classification.
@@ -75,7 +84,17 @@ DEFAULT_ITEM_CLASSIFICATIONS = {
     "Dragons' Flight": ItemClassification.progression,
     "Dragons' Elements": ItemClassification.progression,
     "Spyro's Elements": ItemClassification.progression,
-    "Cynder's Elements": ItemClassification.progression
+    "Cynder's Elements": ItemClassification.progression,
+    "Twilight Falls Key": ItemClassification.progression,
+    "Valley of Avalar Key": ItemClassification.progression,
+    "Dragon City Key": ItemClassification.progression,
+    "Attack of the Golem Key": ItemClassification.progression,
+    "Ruins of Warfang Key": ItemClassification.progression,
+    "The Dam Key": ItemClassification.progression,
+    "The Destroyer Key": ItemClassification.progression,
+    "Burned Lands Key": ItemClassification.progression,
+    "Floating Islands Key": ItemClassification.progression,
+    "Malefor's Lair Key": ItemClassification.progression
 }
 
 # Each Item instance must correctly report to the "game" it belongs to.
@@ -140,6 +159,18 @@ def create_all_items(world: DotDWorld) -> None:
     itempool.append(world.create_item("Cynder Bracers Silver"))
     itempool.append(world.create_item("Cynder Bracers Gold"))
     itempool.append(world.create_item("Cynder Bracers Fury"))
+
+    # Add level keys
+    itempool.append(world.create_item("Twilight Falls Key"))
+    itempool.append(world.create_item("Valley of Avalar Key"))
+    itempool.append(world.create_item("Dragon City Key"))
+    itempool.append(world.create_item("Attack of the Golem Key"))
+    itempool.append(world.create_item("Ruins of Warfang Key"))
+    itempool.append(world.create_item("The Dam Key"))
+    itempool.append(world.create_item("The Destroyer Key"))
+    itempool.append(world.create_item("Burned Lands Key"))
+    itempool.append(world.create_item("Floating Islands Key"))
+    itempool.append(world.create_item("Malefor's Lair Key"))
     
     # NOTE: Some items may only exist if the player enables certain options
     """
