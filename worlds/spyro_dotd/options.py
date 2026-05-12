@@ -67,6 +67,13 @@ class LearnToBreathe(Choice):
 
     default = option_disabled
 
+class ShuffleChapterOrder(Toggle):
+    """
+    Chapters are unlocked in a random order with the exception of Malefor's Lair which is always unlocked last.
+    You are also guaranteed to start in the Catacombs to allow for the unlock of the Chapter menu as early as possible.
+    """
+    display_name = "Shuffle Chapter Order"
+
 
 
 # We must now define a dataclass inheriting from PerGameCommonOptions that we put all our options in.
@@ -78,6 +85,7 @@ class DotDOptions(DeathLinkMixin, PerGameCommonOptions):
     # learn_to_climb: LearnToClimb
     # learn_to_wall_run: LearnToWallRun
     # learn_to_breathe: LearnToBreathe
+    shuffle_chapter_order: ShuffleChapterOrder
     pass
     
 

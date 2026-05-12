@@ -33,6 +33,9 @@ class DotDWorld(World):
     # This defaults to "Menu", but you can change it by overriding origin_region_name.
     origin_region_name = "Menu"
 
+    # For chapter order shuffling
+    chapter_order: list[str]
+
     # Our world class must have certain functions ("steps") that get called during generation.
     # The main ones are: create_regions, set_rules, and create_items.
     # For better structure and readability, we put each of these into their own file.
@@ -42,6 +45,8 @@ class DotDWorld(World):
     
     def set_rules(self) -> None:
         rules.set_all_rules(self)
+        self.multiworld.completion_condition[self.player] = \
+            lambda state: state.has("Victory", self.player)
     
     def create_items(self) -> None:
         items.create_all_items(self)
@@ -63,11 +68,16 @@ class DotDWorld(World):
     # slot_data is just a dictionary using basic types, tthat will be converted to json when sent to the client.
     def fill_slot_data(self) -> Mapping[str, Any]:
         # If you need access to the player's chosen options on the client side, there is a helper for that.
-        return self.options.as_dict(
+        slot_data = self.options.as_dict(
             "death_link",
             # "disable_cheat_codes",
             # "learn_to_fly",
             # "learn_to_climb",
             # "learn_to_wallrun",
             # "learn_to_breathe"
+            "shuffle_chapter_order"
         )
+
+        slot_data["chapter_order"] = self.chapter_order
+
+        return slot_data

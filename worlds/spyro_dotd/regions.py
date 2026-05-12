@@ -4,9 +4,16 @@ from BaseClasses import Region
 if TYPE_CHECKING:
     from .world import DotDWorld
 
+SHUFFLEABLE_CHAPTERS = [
+    "Twilight Falls", "Valley of Avalar", "Dragon City",
+    "Attack of the Golem", "Ruins of Warfang", "The Dam",
+    "The Destroyer", "Burned Lands", "Floating Islands"
+]
+
 def create_and_connect_regions(world: DotDWorld) -> None:
     create_all_regions(world)
     connect_regions(world)
+
 
 def create_all_regions(world: DotDWorld) -> None:
     regions = [
@@ -25,41 +32,32 @@ def create_all_regions(world: DotDWorld) -> None:
     ]
     world.multiworld.regions += regions
 
+
 def connect_regions(world: DotDWorld) -> None:
     player = world.player
 
-    menu           = world.get_region("Menu")
-    catacombs      = world.get_region("Catacombs")
-    twilight_falls = world.get_region("Twilight Falls")
-    valley         = world.get_region("Valley of Avalar")
-    dragon_city    = world.get_region("Dragon City")
-    golem          = world.get_region("Attack of the Golem")
-    ruins          = world.get_region("Ruins of Warfang")
-    the_dam        = world.get_region("The Dam")
-    destroyer      = world.get_region("The Destroyer")
-    burned_lands   = world.get_region("Burned Lands")
-    floating       = world.get_region("Floating Islands")
-    malefor        = world.get_region("Malefor's Lair")
+    if world.options.shuffle_chapter_order:
+        shuffled_middle = list(SHUFFLEABLE_CHAPTERS)
+        world.random.shuffle(shuffled_middle)
+    else:
+        shuffled_middle = list(SHUFFLEABLE_CHAPTERS)
 
-    menu.connect(catacombs)  # always accessible, no key needed
+    # Catacombs is always first, Malefor's Lair always last
+    world.chapter_order = ["Catacombs"] + shuffled_middle
 
-    catacombs.connect(twilight_falls, "Catacombs to Twilight Falls",
-        lambda state: state.has("Twilight Falls Key", player))
-    twilight_falls.connect(valley, "Twilight Falls to Valley of Avalar",
-        lambda state: state.has("Valley of Avalar Key", player))
-    valley.connect(dragon_city, "Valley of Avalar to Dragon City",
-        lambda state: state.has("Dragon City Key", player))
-    dragon_city.connect(golem, "Dragon City to Attack of the Golem",
-        lambda state: state.has("Attack of the Golem Key", player))
-    golem.connect(ruins, "Attack of the Golem to Ruins of Warfang",
-        lambda state: state.has("Ruins of Warfang Key", player))
-    ruins.connect(the_dam, "Ruins of Warfang to The Dam",
-        lambda state: state.has("The Dam Key", player))
-    the_dam.connect(destroyer, "The Dam to The Destroyer",
-        lambda state: state.has("The Destroyer Key", player))
-    destroyer.connect(burned_lands, "The Destroyer to Burned Lands",
-        lambda state: state.has("Burned Lands Key", player))
-    burned_lands.connect(floating, "Burned Lands to Floating Islands",
-        lambda state: state.has("Floating Islands Key", player))
-    floating.connect(malefor, "Floating Islands to Malefor's Lair",
-        lambda state: state.has("Malefor's Lair Key", player))
+    menu       = world.get_region("Menu")
+    catacombs  = world.get_region("Catacombs")
+    malefor    = world.get_region("Malefor's Lair")
+    middle     = [world.get_region(name) for name in shuffled_middle]
+
+    menu.connect(catacombs)  # always free
+    
+    catacombs.connect(middle[0], "Catacombs to Chapter 2",
+        lambda state: state.count("Progressive Chapter Unlock", player) >= 1)
+
+    for i, region in enumerate(middle):
+        next_region = middle[i + 1] if i + 1 < len(middle) else malefor
+        required = i + 2  # +2 because catacombs consumed unlock #1
+        def make_rule(n):
+            return lambda state: state.count("Progressive Chapter Unlock", player) >= n
+        region.connect(next_region, f"Chapter {i + 2} to Chapter {i + 3}", make_rule(required))

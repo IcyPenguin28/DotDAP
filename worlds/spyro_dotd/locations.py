@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from BaseClasses import ItemClassification, Location
 
 from . import items
+from .items import DotDItem
 
 if TYPE_CHECKING:
     from .world import DotDWorld
@@ -226,7 +227,7 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0xa3df24: "Valley of Avalar Blue Gem 8/19",
     0xa3df48: "Valley of Avalar Blue Gem 9/19",
     0xa3df6c: "Valley of Avalar Blue Gem 10/19",
-    0xa3df90: "Valley of Avalar Blue Gem 11/19",
+    0xa3dfb4: "Valley of Avalar Blue Gem 11/19",
     0xa3dfd8: "Valley of Avalar Blue Gem 12/19",
     0xa3dffc: "Valley of Avalar Blue Gem 13/19",
     0xa3e020: "Valley of Avalar Blue Gem 14/19",
@@ -649,6 +650,12 @@ def create_regular_locations(world: DotDWorld) -> None:
     burned_lands.add_locations(burned_lands_locations, DotDLocation)
     floating_islands.add_locations(floating_islands_locations, DotDLocation)
 
-def create_events(world: DotDWorld):
-    # NOTE: Sometimes, the player may perform in-game actions that allow them to progress which are not related to Items.
-    pass
+
+def create_events(world: DotDWorld) -> None:
+    malefors_lair = world.get_region("Malefor's Lair")
+    
+    victory_location = DotDLocation(world.player, "Defeat Malefor", None, malefors_lair)
+    victory_location.place_locked_item(
+        DotDItem("Victory", ItemClassification.progression, None, world.player)
+    )
+    malefors_lair.locations.append(victory_location)

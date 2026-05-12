@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import random
 from typing import Dict, Set, Optional
 
 from enum import Enum
@@ -16,6 +17,9 @@ from .options import DotDOptions
 from .world import DotDWorld
 from .locations import LOCATION_FLAG_ADDRESS_TO_NAME, LOCATION_NAME_TO_ID
 from .pcsx2_interface.pine import Pine
+
+import logging
+logging.getLogger("websockets").setLevel(logging.WARNING)
 
 # Okay, low-key half of this was written by Claude. I'm trash at netcode and MIPS and have never written for AP before. I am just one guy.
 # No one else interested in this project at the time of writing this comment either has the time or the knowledge to contribute to it
@@ -67,6 +71,19 @@ ADDR_CYNDER_TAIL_SILVER = 0xA3E650
 ADDR_CYNDER_TAIL_GOLD = 0xA3DDBC
 ADDR_CYNDER_TAIL_FURY = 0xA3F0B8
 
+# Chapter addresses
+ADDR_CATACOMBS_CLEAR = 0x9FECD3
+ADDR_FALLS_CLEAR = 0x9FECD4
+ADDR_VALLEY_CLEAR = 0x9FECD5
+ADDR_CITY_CLEAR = 0x9FECD6
+ADDR_GOLEM_CLEAR = 0x9FECD7
+ADDR_RUINS_CLEAR = 0x9FECD8
+ADDR_DAM_CLEAR = 0x9FECDA
+ADDR_DESTROYER_CLEAR = 0x9FECDB
+ADDR_BURNED_CLEAR = 0x9FECDC
+ADDR_ISLANDS_CLEAR = 0x9FECDD
+ADDR_MALEFOR_CLEAR = 0x9FECDE
+
 ARMOR_NAME_TO_ADDRESS = {
     "Spyro Helmet Silver": ADDR_SPYRO_HELMET_SILVER,
     "Spyro Helmet Gold": ADDR_SPYRO_HELMET_GOLD,
@@ -104,8 +121,40 @@ LEVEL_ID_TO_INDEX = {
 
 INDEX_TO_LEVEL_ID = {v: k for k, v in LEVEL_ID_TO_INDEX.items()}
 
+LEVEL_NAME_TO_ID = {
+    "Catacombs":          b"\x0A",
+    "Twilight Falls":     b"\x14",
+    "Valley of Avalar":   b"\x1E",
+    "Dragon City":        b"\x28",
+    "Attack of the Golem":b"\x32",
+    "Ruins of Warfang":   b"\x3C",
+    "The Dam":            b"\x50",
+    "The Destroyer":      b"\x5A",
+    "Burned Lands":       b"\x64",
+    "Floating Islands":   b"\x6E",
+    "Malefor's Lair":     b"\x78",
+}
+
 ARMOR_NAME_TO_SCRATCH_ADDRESS = {
     name: addr + 0x05 for name, addr in ARMOR_NAME_TO_ADDRESS.items()
+}
+
+LEVEL_NAME_TO_ADDRESS = {
+    "Catacombs":          ADDR_CATACOMBS_CLEAR,
+    "Twilight Falls":     ADDR_FALLS_CLEAR,
+    "Valley of Avalar":   ADDR_VALLEY_CLEAR,
+    "Dragon City":        ADDR_CITY_CLEAR,
+    "Attack of the Golem":ADDR_GOLEM_CLEAR,
+    "Ruins of Warfang":   ADDR_RUINS_CLEAR,
+    "The Dam":            ADDR_DAM_CLEAR,
+    "The Destroyer":      ADDR_DESTROYER_CLEAR,
+    "Burned Lands":       ADDR_BURNED_CLEAR,
+    "Floating Islands":   ADDR_ISLANDS_CLEAR,
+    "Malefor's Lair":     ADDR_MALEFOR_CLEAR,
+}
+
+LEVEL_NAME_TO_SCRATCH_ADDRESS = {
+    name: addr + 0x11 for name, addr in LEVEL_NAME_TO_ADDRESS.items()
 }
 
 # Expected game ID for NTSC-U version of Dawn of the Dragon
@@ -115,6 +164,8 @@ EXPECTED_GAME_ID = "SLUS-21820"
 # Patching
 ADDR_ARMOR_OWNERSHIP_CHECK_HOOK = 0x0039C2CC
 ADDR_ARMOR_OWNERSHIP_CHECK_ROUTINE = 0x01FFED38
+
+
 # ADDR_SPYRO_FLIGHT_MIRROR_HOOK_W1 = 
 
 class MemoryReader:
@@ -189,6 +240,13 @@ class DotDContext(CommonContext):
         self.memory = MemoryReader()
         self.items_handling = 0b111
 
+        self.chapter_order: list[str] = [
+            "Catacombs", "Twilight Falls", "Valley of Avalar", "Dragon City",
+            "Attack of the Golem", "Ruins of Warfang", "The Dam",
+            "The Destroyer", "Burned Lands", "Floating Islands",
+            "Malefor's Lair"
+        ]
+
         # ---------------------------------------------------------------
         # Idempotency tracking (fix for !collect / reconnect double-apply)
         # ---------------------------------------------------------------
@@ -202,9 +260,7 @@ class DotDContext(CommonContext):
         self._total_blue_gems: int = 0
         self._total_health_gems: int = 0
         self._total_mana_gems: int = 0
-
-        self._received_keys:Set[str] = set()
-        self.levels_unlocked:list[bool] = [True, False, False, False, False, False, False, False, False, False, False]
+        self._num_chapters_unlocked: int = 0
 
         # Item state variables
         self._session_blue_gems_at_connect: int = 0
@@ -265,6 +321,9 @@ class DotDContext(CommonContext):
             self._reset_item_state()
             self.apply_patches()
             self.death_link_enabled = bool(args["slot_data"].get("death_link", 0))
+            order = args["slot_data"].get("chapter_order")
+            if order:
+                self.chapter_order = order + ["Malefor's Lair"]
 
         elif cmd == "ReceivedItems":
             try:
@@ -278,7 +337,6 @@ class DotDContext(CommonContext):
                     self._reset_item_state()
 
                 for net_item in args["items"]:
-                    print(net_item)
                     item_name = self.item_names.lookup_in_game(net_item.item)
                     print(f"Received {item_name} from player {net_item.player}")
                     self._accumulate_item(item_name)
@@ -306,6 +364,7 @@ class DotDContext(CommonContext):
         self._total_health_gems = 0
         self._total_mana_gems = 0
         self._received_armor = set()
+        self._num_chapters_unlocked = 0
 
     def _accumulate_item(self, item_name: str):
         """
@@ -325,8 +384,8 @@ class DotDContext(CommonContext):
             self._total_mana_gems += 1
         elif any(k in item_name for k in ("Tail", "Bracers", "Helmet")):
             self._received_armor.add(item_name)
-        elif "Key" in item_name:
-            self._received_keys.add(item_name)
+        elif "Chapter" in item_name:
+            self._num_chapters_unlocked += 1
         # Instant consumables (Health Gem S / Mana Gem S) are handled inside
         # handle_receive_item because they are meant to be applied once per
         # receipt, not re-applied on reconnect.
@@ -360,14 +419,18 @@ class DotDContext(CommonContext):
             if scratch_addr:
                 self.memory.write_bytes(scratch_addr, b"\x01")
         
-        for key in self._received_keys:
-            index = ITEM_NAME_TO_ID[key] - 30
-            self.levels_unlocked[index] = True
+        # TODO: Chapters(?)
+        for i in range(self._num_chapters_unlocked + 1):
+            chapter_name = self.chapter_order[i]
+            scratch_addr = LEVEL_NAME_TO_SCRATCH_ADDRESS.get(chapter_name)
+            if scratch_addr:
+                self.memory.write_bytes(scratch_addr, b"\x01")
 
     # ------------------------------------------------------------------
     # Patches
     # ------------------------------------------------------------------
     def apply_patches(self):
+        # ARMOR OWNERSHIP BYTE SPLIT
         self.memory.write_bytes(ADDR_ARMOR_OWNERSHIP_CHECK_ROUTINE, bytes([
             0x21, 0x00, 0x83, 0x90,  # lbu v1, 0x21(a0)
             0xB4, 0x70, 0x0E, 0x08,  # j 0x0039c2d0
@@ -377,13 +440,31 @@ class DotDContext(CommonContext):
         self.memory.write_bytes(ADDR_ARMOR_OWNERSHIP_CHECK_HOOK, bytes([
             0x4E, 0xFB, 0x7F, 0x08,  # j 0x01FFED38
         ]))
+
+        # CHAPTER UNLOCK BYTE SPLIT
+        self.memory.write_bytes(0x005E7CB0, bytes([
+            0x54, 0x02, 0x63, 0x90
+        ]))
+        self.memory.write_bytes(0x003BDCC4, bytes([
+            0x54, 0x02, 0x45, 0x90
+        ]))
+
         print("Game patches applied.")
 
     def restore_scratch_flags(self):
-        for location_name, scratch_addr in ARMOR_NAME_TO_SCRATCH_ADDRESS.items():
-            location_id = LOCATION_NAME_TO_ID[location_name]
-            if location_id in self.checked_locations:
+        # Restore armor scratch flags from received armor set
+        for armor_name in self._received_armor:
+            scratch_addr = ARMOR_NAME_TO_SCRATCH_ADDRESS.get(armor_name)
+            if scratch_addr:
                 self.memory.write_bytes(scratch_addr, b"\x01")
+
+        # Restore chapter scratch flags from chapter unlock count
+        for i in range(self._num_chapters_unlocked + 1):
+            chapter_name = self.chapter_order[i]
+            scratch_addr = LEVEL_NAME_TO_SCRATCH_ADDRESS.get(chapter_name)
+            if scratch_addr:
+                self.memory.write_bytes(scratch_addr, b"\x01")
+
         print("Scratch flags restored.")
 
     # ------------------------------------------------------------------
@@ -394,7 +475,7 @@ class DotDContext(CommonContext):
         self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, 0)
 
     # ------------------------------------------------------------------
-    # Item send (location-side cancellation) — unchanged logic, kept here
+    # Item send (location-side cancellation)
     # ------------------------------------------------------------------
     def handle_send_item(self, loc_name: str):
         id = LOCATION_NAME_TO_ID[loc_name]
@@ -578,15 +659,21 @@ async def level_redirector(ctx: DotDContext):
             if ctx.memory.is_connected and ctx._game_version_ok:
                 next_level = ctx.memory.read_bytes(ADDR_NEXT_LEVEL, 1)
                 if next_level and next_level not in (b"\x00", b"\xFF"):
-                    index = LEVEL_ID_TO_INDEX.get(next_level)
-                    if index is not None and not ctx.levels_unlocked[index]:
-                        # Find the highest unlocked level index
-                        highest_unlocked = 0
-                        for i, unlocked in enumerate(ctx.levels_unlocked):
-                            if unlocked:
-                                highest_unlocked = i
-                        fallback_level_id = INDEX_TO_LEVEL_ID[highest_unlocked]
-                        ctx.memory.write_bytes(ADDR_NEXT_LEVEL, fallback_level_id)
+                    # Find which chapter name this level ID corresponds to
+                    next_level_name = next((name for name, id_bytes in LEVEL_NAME_TO_ID.items()
+                                           if id_bytes == next_level), None)
+                    if next_level_name is None:
+                        await asyncio.sleep(0.05)
+                        continue
+
+                    # Check if this chapter is unlocked by seeing if it appears
+                    # within the unlocked slice of chapter_order
+                    unlocked_chapters = ctx.chapter_order[:ctx._num_chapters_unlocked + 1]
+                    if next_level_name not in unlocked_chapters:
+                        chosen_name = random.choice(unlocked_chapters)
+                        fallback_id = LEVEL_NAME_TO_ID.get(chosen_name)
+                        if fallback_id:
+                            ctx.memory.write_bytes(ADDR_NEXT_LEVEL, fallback_id)
         except Exception as e:
             print(f"Error in level_redirector: {e}")
         await asyncio.sleep(0.05)
@@ -606,6 +693,17 @@ async def goal_watcher(ctx: DotDContext):
         except Exception as e:
             print(f"Error in goal_watcher: {e}")
         await asyncio.sleep(0.5)
+
+
+async def chapter_menu_unlocker(ctx: DotDContext):
+    while True:
+        try:
+            if ctx.memory.is_connected and ctx._game_version_ok:
+                ctx.memory.write_bytes(0x9FECE4, b"\x01")
+        except Exception as e:
+            print(f"Error in chapter_menu_unlocker: {e}")
+        await asyncio.sleep(0.1)
+
 
 
 # ---------------------------------------------------------------------------
@@ -633,6 +731,7 @@ def main(*args: str):
         goal_task = asyncio.create_task(goal_watcher(ctx), name="goal watcher")
         watchdog_task = asyncio.create_task(emulator_watchdog(ctx), name="emulator watchdog")
         redirector_task = asyncio.create_task(level_redirector(ctx), name="redirector task")
+        chapter_menu_task = asyncio.create_task(chapter_menu_unlocker(ctx), name="chapter menu unlocker")
 
         if gui_enabled:
             ctx.run_gui()
@@ -641,7 +740,7 @@ def main(*args: str):
         await ctx.exit_event.wait()
 
         # Cancel all background tasks
-        for task in (watcher_task, health_gem_task, mana_gem_task, death_task, goal_task, watchdog_task, redirector_task):
+        for task in (watcher_task, health_gem_task, mana_gem_task, death_task, goal_task, watchdog_task, chapter_menu_task, redirector_task):
             task.cancel()
             try:
                 await task
