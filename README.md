@@ -124,7 +124,7 @@ Download the latest release from GitHub and pick _one_ of the following methods 
   * Archipelago server
   * PCSX2
 
-### The game says I have enough (4-5) Red Health Crystals/Green Magic Crystals when I've received zero so far!
+### The game says I have enough (4-5) Red Life Crystals/Green Magic Crystals when I've received zero so far!
 * This is simply a quirk of the UI. It perceives zero as having a full bar of these crystals.
 
 ### I got 1000 EXP from a blue gem cluster! Shouldn't that have been cancelled out?
