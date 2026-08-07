@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 import random
-from typing import Dict, Set, Optional
+from typing import Any, Dict, Set, Optional
 
 from enum import Enum
 
@@ -37,6 +37,8 @@ ADDR_HEALTH_GEMS_COLLECTED = 0x9FEB6C
 ADDR_MANA_GEMS_COLLECTED = 0x9FEB7C
 ADDR_CURRENT_LEVEL = 0x9FE274
 ADDR_NEXT_LEVEL = 0x9FE278
+ADDR_PAUSE_FLAG = 0x7B7670
+ADDR_CKS08GAMESTRUCTURE = 0x9FEA90
 
 # EXP Buckets
 ADDR_SPYRO_UNSPENT_EXP = 0x9FEB18
@@ -85,6 +87,11 @@ ADDR_DESTROYER_CLEAR = 0x9FECDB
 ADDR_BURNED_CLEAR = 0x9FECDC
 ADDR_ISLANDS_CLEAR = 0x9FECDD
 ADDR_MALEFOR_CLEAR = 0x9FECDE
+
+# Pointer to class values
+# Every object of a given class has the same pointer value at offset 0x0
+# Note that the class names can't be seen on PS2, but they can on Wii by following the pointer chain at offset 0x0
+CLASS_PTR_CKS08GAMESTRUCTURE = 0x00788330
 
 ARMOR_NAME_TO_ADDRESS = {
     "Spyro Helmet Silver": ADDR_SPYRO_HELMET_SILVER,
@@ -275,8 +282,8 @@ class DotDContext(CommonContext):
         self._received_armor: Set[str] = set()
 
         # Default options values
-        self.last_death_link: float = 0
         self.death_link_enabled = False
+        self.player_dead = False
         self.learn_fury = 0
 
         # Whether game-version check has passed
@@ -376,11 +383,6 @@ class DotDContext(CommonContext):
 
             except Exception as e:
                 print(f"on_package encountered exception: {e}")
-
-        elif cmd == "Bounced":
-            if "DeathLink" in args.get("tags", []):
-                self.last_death_link = args["data"]["time"]
-                asyncio.create_task(self.kill_player())
 
     # ------------------------------------------------------------------
     # Item state — idempotent accumulation + flush
@@ -524,11 +526,16 @@ class DotDContext(CommonContext):
     # ------------------------------------------------------------------
     # Death / kill
     # ------------------------------------------------------------------
-    async def kill_player(self):
+    def on_deathlink(self, data: dict[str, Any]) -> None:
+        super().on_deathlink(data)
+        self.kill_player()
+
+    def kill_player(self):
         if self.memory.read_bytes(ADDR_SPYRO_CONTROLLER, 1) == b"\x00":
             self.memory.write_u32(ADDR_SPYRO_CURRENT_HP, 0)
         elif self.memory.read_bytes(ADDR_CYNDER_CONTROLLER, 1) == b"\x00":
             self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, 0)
+        self.player_dead = True
 
     # ------------------------------------------------------------------
     # Legacy per-item receive handlers (still used for instant consumables)
@@ -669,19 +676,26 @@ async def death_watcher(ctx: DotDContext):
     while True:
         try:
             if ctx.slot and ctx.death_link_enabled and ctx.memory.is_connected and ctx._game_version_ok:
-                spyro_hp = ctx.memory.read_u32(ADDR_SPYRO_CURRENT_HP)
-                cynder_hp = ctx.memory.read_u32(ADDR_CYNDER_CURRENT_HP)
+                # Check if the CKS08GameStructure object (the global object that holds our HP values) exists
+                # and that the game is not paused/loading to avoid sending deaths on game (re)boot
+                if (ctx.memory.read_u32(ADDR_CKS08GAMESTRUCTURE) == CLASS_PTR_CKS08GAMESTRUCTURE
+                        and ctx.memory.read_bytes(ADDR_PAUSE_FLAG, 1) == b"\x00"):
+                    spyro_hp = ctx.memory.read_u32(ADDR_SPYRO_CURRENT_HP)
+                    cynder_hp = ctx.memory.read_u32(ADDR_CYNDER_CURRENT_HP)
 
-                # Guard against None (disconnected)
-                if spyro_hp is None or cynder_hp is None:
-                    await asyncio.sleep(0.1)
-                    continue
+                    # Guard against None (disconnected)
+                    if spyro_hp is None or cynder_hp is None:
+                        await asyncio.sleep(0.1)
+                        continue
 
-                if spyro_hp == 0 or cynder_hp == 0:
-                    current_time = time.time()
-                    if current_time - ctx.last_death_link > 12.0:
-                        await ctx.send_death(death_text="Spyro and Cynder have fallen!")
-                        ctx.last_death_link = current_time
+                    if spyro_hp == 0 or cynder_hp == 0:
+                        if not ctx.player_dead:
+                            current_time = time.time()
+                            if current_time - ctx.last_death_link > 12.0:
+                                ctx.player_dead = True
+                                await ctx.send_death(death_text="Spyro and Cynder have fallen!")
+                    else:
+                        ctx.player_dead = False
         except Exception as e:
             print(f"Error in death_watcher: {e}")
         await asyncio.sleep(0.1)
