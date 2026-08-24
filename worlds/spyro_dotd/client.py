@@ -26,15 +26,21 @@ logging.getLogger("websockets").setLevel(logging.WARNING)
 
 # Useful addresses
 ADDR_SPYRO_CURRENT_HP = 0x9FEAE0
+ADDR_SPYRO_BASE_HP = 0x9FEAE4
 ADDR_CYNDER_CURRENT_HP = 0x9FEAE8
+ADDR_CYNDER_BASE_HP = 0x9FEAEC
 ADDR_SPYRO_CURRENT_MANA = 0x9FEAF8
+ADDR_SPYRO_BASE_MANA = 0x9FEAFC
 ADDR_CYNDER_CURRENT_MANA = 0x9FEB00
+ADDR_CYNDER_BASE_MANA = 0x9FEB04
 ADDR_SPYRO_CURRENT_FURY = 0x9FEB08
 ADDR_CYNDER_CURRENT_FURY = 0x9FEB0C
 ADDR_SPYRO_CONTROLLER = 0x98C195
 ADDR_CYNDER_CONTROLLER = 0x98C196
 ADDR_HEALTH_GEMS_COLLECTED = 0x9FEB6C
 ADDR_MANA_GEMS_COLLECTED = 0x9FEB7C
+ADDR_BONUS_HP_PER_UPGRADE = 0x9FEADC
+ADDR_BONUS_MANA_PER_UPGRADE = 0x9FEAF4
 ADDR_CURRENT_LEVEL = 0x9FE274
 ADDR_NEXT_LEVEL = 0x9FE278
 ADDR_PAUSE_FLAG = 0x7B7670
@@ -51,6 +57,11 @@ ADDR_CYNDER_POISON_EXP = 0x9FEB34
 ADDR_CYNDER_SHADOW_EXP = 0x9FEB38
 ADDR_CYNDER_FEAR_EXP = 0x9FEB3C
 ADDR_CYNDER_WIND_EXP = 0x9FEB40
+
+# We'll use an unused 4-bytes in the Player_Current CKS08Player object (same place where Total Game Time is stored)
+# to count how many blue gems the player has actually received ; it will be saved to the save file and loaded as normal.
+# This will be used as protection against XP dupe on reconnect and XP loss if the player connects before selecting New game or Load game
+ADDR_AP_BLUE_GEMS_COUNTER = 0x9FEA1C
 
 # Game completion flag address: is set to 1 when Malefor is defeated
 ADDR_FINAL_BOSS_DEFEATED = 0x9FECDE
@@ -437,16 +448,45 @@ class DotDContext(CommonContext):
         Called after every ReceivedItems batch so the game always reflects
         what the server says the player should have.
         """
-        # Write EXP
-        spyro_exp = self.memory.read_u32(ADDR_SPYRO_UNSPENT_EXP) or 0
-        cynder_exp = self.memory.read_u32(ADDR_CYNDER_UNSPENT_EXP) or 0
-        # Only adjust the server-contributed portion; don't clobber in-world gains.
+
+        # XP: Only adjust the server-contributed portion; don't clobber in-world gains.
         # We track the delta between what we last wrote and what we're writing now.
-        exp_delta = (self._total_blue_gems - getattr(self, "_last_written_blue_gems", 0)) * 1000
+        saved_blue_gems_count = self.memory.read_u32(ADDR_AP_BLUE_GEMS_COUNTER) or 0
+        exp_delta = (self._total_blue_gems - saved_blue_gems_count) * 1000
         if exp_delta != 0:
-            self.memory.write_u32(ADDR_SPYRO_UNSPENT_EXP, max(0, spyro_exp + exp_delta))
-            self.memory.write_u32(ADDR_CYNDER_UNSPENT_EXP, max(0, cynder_exp + exp_delta))
-        self._last_written_blue_gems = self._total_blue_gems
+            # Read EXP values and calculate the total EXP for each dragon
+            spyro_unspent_exp = self.memory.read_u32(ADDR_SPYRO_UNSPENT_EXP) or 0
+            fire_exp = self.memory.read_u32(ADDR_SPYRO_FIRE_EXP) or 0
+            ice_exp = self.memory.read_u32(ADDR_SPYRO_ICE_EXP) or 0
+            earth_exp = self.memory.read_u32(ADDR_SPYRO_EARTH_EXP) or 0
+            elec_exp = self.memory.read_u32(ADDR_SPYRO_ELEC_EXP) or 0
+            spyro_total_exp = spyro_unspent_exp + fire_exp + ice_exp + earth_exp + elec_exp
+            
+            cynder_unspent_exp = self.memory.read_u32(ADDR_CYNDER_UNSPENT_EXP) or 0
+            poison_exp = self.memory.read_u32(ADDR_CYNDER_POISON_EXP) or 0
+            shadow_exp = self.memory.read_u32(ADDR_CYNDER_SHADOW_EXP) or 0
+            fear_exp = self.memory.read_u32(ADDR_CYNDER_FEAR_EXP) or 0
+            wind_exp = self.memory.read_u32(ADDR_CYNDER_WIND_EXP) or 0
+            cynder_total_exp = cynder_unspent_exp + poison_exp + shadow_exp + fear_exp + wind_exp
+
+            exp_cap = 268000
+            
+            # Give EXP to Spyro, prevent it from going over cap and give excess to Cynder
+            spyro_excess_exp = max(0, spyro_total_exp + exp_delta - exp_cap)
+            spyro_unspent_exp += exp_delta - spyro_excess_exp
+            spyro_total_exp += exp_delta - spyro_excess_exp
+            # Same but for Cynder
+            cynder_excess_exp = max(0, cynder_total_exp + spyro_excess_exp + exp_delta - exp_cap)
+            cynder_unspent_exp += spyro_excess_exp + exp_delta - cynder_excess_exp
+            # Give Cynder's excess EXP to Spyro
+            if cynder_excess_exp > 0 and spyro_total_exp < exp_cap:
+                spyro_excess_exp = max(0, spyro_total_exp + cynder_excess_exp - exp_cap)
+                spyro_unspent_exp += cynder_excess_exp - spyro_excess_exp
+
+            # Write the EXP to memory
+            self.memory.write_u32(ADDR_SPYRO_UNSPENT_EXP, max(0, spyro_unspent_exp))
+            self.memory.write_u32(ADDR_CYNDER_UNSPENT_EXP, max(0, cynder_unspent_exp))
+        self.memory.write_u32(ADDR_AP_BLUE_GEMS_COUNTER, self._total_blue_gems)
 
         # Gem counts: these are continuously enforced by the setter tasks, so
         # just update the module-level globals that those tasks read.
@@ -541,20 +581,42 @@ class DotDContext(CommonContext):
     # Legacy per-item receive handlers (still used for instant consumables)
     # ------------------------------------------------------------------
     def handle_receive_health_gem_s(self):
+        # Base hp values are 300 and each health upgrade adds 100 max health in vanilla
+        # Could be changed with a setting in the future by overwriting base and upgrade values in memory
         if self.memory.read_bytes(ADDR_SPYRO_CONTROLLER, 1) == b"\x00":
+            spyro_max_hp = 300 + 100 * (health_gems_collected // 4)
             spyro_hp = self.memory.read_u32(ADDR_SPYRO_CURRENT_HP) or 0
-            self.memory.write_u32(ADDR_SPYRO_CURRENT_HP, spyro_hp + 15)
+            spyro_hp += 15
+            if spyro_hp > spyro_max_hp:
+                spyro_hp = spyro_max_hp
+            self.memory.write_u32(ADDR_SPYRO_CURRENT_HP, spyro_hp)
+
         if self.memory.read_bytes(ADDR_CYNDER_CONTROLLER, 1) == b"\x00":
+            cynder_max_hp = 300 + 100 * (health_gems_collected // 5)
             cynder_hp = self.memory.read_u32(ADDR_CYNDER_CURRENT_HP) or 0
-            self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, cynder_hp + 15)
+            cynder_hp += 15
+            if cynder_hp > cynder_max_hp:
+                cynder_hp = cynder_max_hp
+            self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, cynder_hp)
 
     def handle_receive_mana_gem_s(self):
+        # Base mana values are 300 and each mana upgrade adds 100 max mana in vanilla
+        # Could be changed with a setting in the future by overwriting base and upgrade values in memory
         if self.memory.read_bytes(ADDR_SPYRO_CONTROLLER, 1) == b"\x00":
+            spyro_max_mana = 300 + 100 * (mana_gems_collected // 5)
             spyro_mana = self.memory.read_u32(ADDR_SPYRO_CURRENT_MANA) or 0
-            self.memory.write_u32(ADDR_SPYRO_CURRENT_MANA, spyro_mana + 15)
+            spyro_mana += 15
+            if spyro_mana > spyro_max_mana:
+                spyro_mana = spyro_max_mana
+            self.memory.write_u32(ADDR_SPYRO_CURRENT_MANA, spyro_mana)
+
         if self.memory.read_bytes(ADDR_CYNDER_CONTROLLER, 1) == b"\x00":
+            cynder_max_mana = 300 + 100 * (mana_gems_collected // 4)
             cynder_mana = self.memory.read_u32(ADDR_CYNDER_CURRENT_MANA) or 0
-            self.memory.write_u32(ADDR_CYNDER_CURRENT_MANA, cynder_mana + 15)
+            cynder_mana += 15
+            if cynder_mana > cynder_max_mana:
+                cynder_mana = cynder_max_mana
+            self.memory.write_u32(ADDR_CYNDER_CURRENT_MANA, cynder_mana)
 
     # ------------------------------------------------------------------
     # Goal completion
