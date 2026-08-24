@@ -7,11 +7,11 @@ An Archipelago integration for *The Legend of Spyro: Dawn of the Dragon* (PS2, N
 ## Item Pool & Locations
 ### Items
 * **Blue Gem Cluster**: +1000 EXP to both Spyro and Cynder (99, Useful)
-* **Red Health Crystal**: +1 Red Health Crystal to both Spyro and Cynder, increasing max HP with enough collected (20, Useful)
+* **Red Life Crystal**: +1 Red Life Crystal to both Spyro and Cynder, increasing max HP with enough collected (20, Useful)
 * **Green Magic Crystal**: +1 Green Magic Crystal to both Spyro and Cynder, increasing max Mana with enough collected (20, Useful)
 * **[Spyro | Cynder] [Helmet | Bracers | Tail] [Silver | Gold | Fury]**: Grants the specified piece of armor (18, Useful)
-* **Health Gem S**: Any player-controlled dragon(s) recover 19 HP (Filler)
-* **Mana Gem S**: Any player-controlled dragon(s) recover 19 Mana (Filler)
+* **Health Gem S**: Any player-controlled dragon(s) recover 15 HP (Filler)
+* **Mana Gem S**: Any player-controlled dragon(s) recover 15 Mana (Filler)
 * **Progressive Chapter Unlock**: Grants access to the next chapter in the list, be it vanilla or shuffled (10, Progression)
 ### Locations
 * **All 99 Blue Gem Clusters**
@@ -23,6 +23,29 @@ An Archipelago integration for *The Legend of Spyro: Dawn of the Dragon* (PS2, N
 * **Gallery Unlocks**
   * Scenery Gallery Unlock
   * Alliance Gallery Unlock
+* **Objectives**
+  * Reach the Enchanted Forest
+  * Save the Cheetah Village
+  * Find Meadow
+  * Find the Hermit
+  * Find the Supply Cave
+  * Find the Raft
+  * Bring the Raft to Meadow
+  * Extinguish the Fire
+  * Fill the Pool with Water
+  * Find a Bucket
+  * Protect the Catapult
+  * Destroy the Siege Tower (first)
+  * Escort the Artillery Mole to the Catapult
+  * Destroy the Siege Tower (second)
+  * Destroy the last two Siege Towers
+  * Close the City Gates
+  * Open the Gates to the Ruins of Warfang
+  * Open the Floodgates to the Dam
+  * Open the Main Floodgate
+  * Destroy all the crystals of the Destroyer
+  * Reach the Volcano
+  * Torches Lit 8/8
 
 ### Goal Check
 Defeat Malefor!
@@ -101,7 +124,7 @@ Download the latest release from GitHub and pick _one_ of the following methods 
   * Archipelago server
   * PCSX2
 
-### The game says I have enough (4-5) Red Health Crystals/Green Magic Crystals when I've received zero so far!
+### The game says I have enough (4-5) Red Life Crystals/Green Magic Crystals when I've received zero so far!
 * This is simply a quirk of the UI. It perceives zero as having a full bar of these crystals.
 
 ### I got 1000 EXP from a blue gem cluster! Shouldn't that have been cancelled out?

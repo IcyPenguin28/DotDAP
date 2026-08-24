@@ -22,13 +22,14 @@ if TYPE_CHECKING:
 #                   401-420: Armor Chests
 #                   501-510: Level Clears
 #                   601-604: Gallery Unlocks
+#                   701-722: Objectives Complete
 LOCATION_NAME_TO_ID = {
     "Catacombs Blue Gem - Weight Room": 1,
     "Catacombs Blue Gem - Waterfall Room Under Right Breakable Stone": 2,
     "Catacombs Blue Gem - Waterfall Room Under Left Breakable Stone": 3,
-    "Catacombs Blue Gem - Waterfall Room Pillars 1": 4,
+    "Catacombs Blue Gem - Waterfall Room Pillars 2": 4,
     "Catacombs Blue Gem - Waterfall Room Top Left": 5,
-    "Catacombs Blue Gem - Waterfall Room Pillars 2": 6,
+    "Catacombs Blue Gem - Waterfall Room Pillars 1": 6,
     "Catacombs Blue Gem - Waterfall Room Right": 7,
     "Catacombs Blue Gem - Waterfall Room Near Breakable Stones": 8,
     "Catacombs Blue Gem - Waterfall Room Save Point": 9,
@@ -201,10 +202,36 @@ LOCATION_NAME_TO_ID = {
     # "Spyro Gallery Unlock": 601,
     # "Cynder Gallery Unlock": 602,
     "Alliance Gallery Unlock": 603,
-    "Scenery Gallery Unlock": 604
+    "Scenery Gallery Unlock": 604,
+    "Objective Complete - Reach the Enchanted Forest": 701,
+    "Objective Complete - Save the Cheetah Village": 702,
+    "Objective Complete - Find Meadow": 703,
+    "Objective Complete - Find the Hermit": 704,
+    "Objective Complete - Find the Supply Cave": 705,
+    "Objective Complete - Find the Raft": 706,
+    "Objective Complete - Bring the Raft to Meadow": 707,
+    "Objective Complete - Extinguish the Fire": 708,
+    "Objective Complete - Fill the Pool with Water": 709,
+    "Objective Complete - Find a Bucket": 710,
+    "Objective Complete - Protect the Catapult": 711,
+    "Objective Complete - Destroy the Siege Tower (first)": 712,
+    "Objective Complete - Escort the Artillery Mole to the Catapult": 713,
+    "Objective Complete - Destroy the Siege Tower (second)": 714,
+    "Objective Complete - Destroy the last two Siege Towers": 715,
+    "Objective Complete - Close the City Gates": 716,
+    "Objective Complete - Open the Gates to the Ruins of Warfang": 717,
+    "Objective Complete - Open the Floodgates to the Dam": 718,
+    "Objective Complete - Open the Main Floodgate": 719,
+    "Objective Complete - Destroy all the crystals of the Destroyer": 720,
+    "Objective Complete - Reach the Volcano": 721,
+    "Objective Complete - Torches Lit 8/8": 722
 }
 
 # If the flag at one of these addresses == 1, then the item at the location has been collected
+# Unless it is an objective, in which case we need to look for a value of 2 (Complete, since 1 is Active and shows in the Objectives Menu)
+# Note that it is not required to have the objective set to Active first for the game to set it to Complete. It can very well
+# go from 0 to 2 directly. In fact, the Close the City Gates objective is kinda buggy and only set to Active if you don't have the armor
+# chest collected and don't skip the troll dying cutscene, but it is always set to Complete when you close the doors regardless
 LOCATION_FLAG_ADDRESS_TO_NAME = {
     # 0x9fecdf: "Spyro Gallery Unlock",
     # 0x9fece0: "Cynder Gallery Unlock",
@@ -213,9 +240,9 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0xa3edc4: "Catacombs Blue Gem - Weight Room",
     0xa3ee0c: "Catacombs Blue Gem - Waterfall Room Under Right Breakable Stone",
     0xa3ee30: "Catacombs Blue Gem - Waterfall Room Under Left Breakable Stone",
-    0xa3ee54: "Catacombs Blue Gem - Waterfall Room Pillars 1",
+    0xa3ee54: "Catacombs Blue Gem - Waterfall Room Pillars 2",
     0xa3ee78: "Catacombs Blue Gem - Waterfall Room Top Left",
-    0xa3ee9c: "Catacombs Blue Gem - Waterfall Room Pillars 2",
+    0xa3ee9c: "Catacombs Blue Gem - Waterfall Room Pillars 1",
     0xa3eec0: "Catacombs Blue Gem - Waterfall Room Right",
     0xa3eee4: "Catacombs Blue Gem - Waterfall Room Near Breakable Stones",
     0xa3ef2c: "Catacombs Blue Gem - Waterfall Room Save Point",
@@ -385,6 +412,28 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0x9fecdb: "The Destroyer Cleared",
     0x9fecdc: "Burned Lands Cleared",
     0x9fecdd: "Floating Islands Cleared",
+    0xa618d0: "Objective Complete - Reach the Enchanted Forest",
+    0xa76400: "Objective Complete - Save the Cheetah Village",
+    0xa76402: "Objective Complete - Find Meadow",
+    0xa76403: "Objective Complete - Find the Hermit",
+    0xa76404: "Objective Complete - Find the Supply Cave",
+    0xa76406: "Objective Complete - Find the Raft",
+    0xa76407: "Objective Complete - Bring the Raft to Meadow",
+    0xa76420: "Objective Complete - Extinguish the Fire",
+    0xa76421: "Objective Complete - Fill the Pool with Water",
+    0xa76422: "Objective Complete - Find a Bucket",
+    0xa76423: "Objective Complete - Protect the Catapult",
+    0xa76424: "Objective Complete - Destroy the Siege Tower (first)",
+    0xa76425: "Objective Complete - Escort the Artillery Mole to the Catapult",
+    0xa76426: "Objective Complete - Destroy the Siege Tower (second)",
+    0xa76427: "Objective Complete - Destroy the last two Siege Towers",
+    0xa76428: "Objective Complete - Close the City Gates",
+    0xa734d0: "Objective Complete - Open the Gates to the Ruins of Warfang",
+    0xa77ab1: "Objective Complete - Open the Floodgates to the Dam",
+    0xa77ab3: "Objective Complete - Open the Main Floodgate",
+    0xa77ad0: "Objective Complete - Destroy all the crystals of the Destroyer",
+    0xa77af1: "Objective Complete - Reach the Volcano",
+    0xa77b12: "Objective Complete - Torches Lit 8/8"
 }
 
 # Each Location instance must correctly report the "game" it belongs to.
@@ -468,6 +517,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "TF Armor Chest - Near Elite",
             "TF Armor Chest - Behind Vines",
             "TF Elite",
+            "Objective Complete - Reach the Enchanted Forest",
             "Twilight Falls Cleared"
         ]
     )
@@ -504,6 +554,12 @@ def create_regular_locations(world: DotDWorld) -> None:
             "VoA Armor Chest - Big Waterfall",
             "VoA Armor Chest - Hermit",
             "VoA Elite",
+            "Objective Complete - Save the Cheetah Village",
+            "Objective Complete - Find Meadow",
+            "Objective Complete - Find the Hermit",
+            "Objective Complete - Find the Supply Cave",
+            "Objective Complete - Find the Raft",
+            "Objective Complete - Bring the Raft to Meadow",
             "Valley of Avalar Cleared"
         ]
     )
@@ -527,6 +583,15 @@ def create_regular_locations(world: DotDWorld) -> None:
             "DC Armor Chest - Behind Top Shadow Gate Near Fire",
             "DC Armor Chest - Near Second Save Point",
             "DC Armor Chest - Troll",
+            "Objective Complete - Extinguish the Fire",
+            "Objective Complete - Fill the Pool with Water",
+            "Objective Complete - Find a Bucket",
+            "Objective Complete - Protect the Catapult",
+            "Objective Complete - Destroy the Siege Tower (first)",
+            "Objective Complete - Escort the Artillery Mole to the Catapult",
+            "Objective Complete - Destroy the Siege Tower (second)",
+            "Objective Complete - Destroy the last two Siege Towers",
+            "Objective Complete - Close the City Gates",
             "Dragon City Cleared"
         ]
     )
@@ -564,6 +629,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "RoW Armor Chest - Up Right Path Under Earth Slab",
             "RoW Armor Chest - Left Path Near Key",
             "RoW Elite",
+            "Objective Complete - Open the Gates to the Ruins of Warfang",
             "Ruins of Warfang Cleared"
         ]
     )
@@ -582,6 +648,8 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Dam Armor Chest - Right Pillar",
             "Dam Armor Chest - Hero Orc",
             "Dam Elite",
+            "Objective Complete - Open the Floodgates to the Dam",
+            "Objective Complete - Open the Main Floodgate",
             "The Dam Cleared"
         ]
     )
@@ -602,6 +670,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Destroyer Mana Gem - Mouth",
             "Destroyer Armor Chest - Torso",
             "Destroyer Armor Chest - Right Arm",
+            "Objective Complete - Destroy all the crystals of the Destroyer",
             "The Destroyer Cleared"
         ]
     )
@@ -626,6 +695,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "BL Armor Chest - Orcs",
             "BL Armor Chest - Behind Dark Crystal",
             "BL Elite",
+            "Objective Complete - Reach the Volcano",
             "Burned Lands Cleared"
         ]
     )
@@ -655,6 +725,7 @@ def create_regular_locations(world: DotDWorld) -> None:
             "FI Mana Gem",
             "FI Elite - Wyvern",
             "FI Elite - Hero Grublin",
+            "Objective Complete - Torches Lit 8/8",
             "Floating Islands Cleared"
         ]
     )

@@ -626,7 +626,7 @@ async def location_watcher(ctx: DotDContext):
                     print(f"Error in location_watcher: {e}")
                     continue
 
-                if collected == 1:
+                if (collected == 1 and not "Objective" in location_name) or collected == 2:
                     location_id = LOCATION_NAME_TO_ID[location_name]
                     if location_id not in ctx.checked_locations:
                         print(f"Check found: {location_name}")
