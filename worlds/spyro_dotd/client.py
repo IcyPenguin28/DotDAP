@@ -13,16 +13,15 @@ from CommonClient import CommonContext, ClientCommandProcessor, server_loop, gui
 
 
 from .items import DotDItem, ITEM_NAME_TO_ID
+from .elite_elements import DEFAULT_ELITE_ELEMENTS
 from .options import DotDOptions
 from .world import DotDWorld
 from .locations import LOCATION_FLAG_ADDRESS_TO_NAME, LOCATION_NAME_TO_ID
-from .pcsx2_interface.pine import Pine
+from .pcsx2_interface.pine import Pine, struct
+# from .interface import install_element_rando_hook
 
 import logging
 logging.getLogger("websockets").setLevel(logging.WARNING)
-
-# Okay, low-key half of this was written by Claude. I'm trash at netcode and MIPS and have never written for AP before. I am just one guy.
-# No one else interested in this project at the time of writing this comment either has the time or the knowledge to contribute to it
 
 # Useful addresses
 ADDR_SPYRO_CURRENT_HP = 0x9FEAE0
@@ -35,8 +34,6 @@ ADDR_CYNDER_CURRENT_MANA = 0x9FEB00
 ADDR_CYNDER_BASE_MANA = 0x9FEB04
 ADDR_SPYRO_CURRENT_FURY = 0x9FEB08
 ADDR_CYNDER_CURRENT_FURY = 0x9FEB0C
-ADDR_SPYRO_CONTROLLER = 0x98C195
-ADDR_CYNDER_CONTROLLER = 0x98C196
 ADDR_HEALTH_GEMS_COLLECTED = 0x9FEB6C
 ADDR_MANA_GEMS_COLLECTED = 0x9FEB7C
 ADDR_BONUS_HP_PER_UPGRADE = 0x9FEADC
@@ -45,6 +42,9 @@ ADDR_CURRENT_LEVEL = 0x9FE274
 ADDR_NEXT_LEVEL = 0x9FE278
 ADDR_PAUSE_FLAG = 0x7B7670
 ADDR_CKS08GAMESTRUCTURE = 0x9FEA90
+ADDR_CURRENT_LEVEL = 0x9FE274
+ADDR_NEXT_LEVEL = 0x9FE278
+ADDR_MENU_VALUE = 0x9FE308
 
 # EXP Buckets
 ADDR_SPYRO_UNSPENT_EXP = 0x9FEB18
@@ -99,6 +99,52 @@ ADDR_BURNED_CLEAR = 0x9FECDC
 ADDR_ISLANDS_CLEAR = 0x9FECDD
 ADDR_MALEFOR_CLEAR = 0x9FECDE
 
+# Base pointer addresses
+ADDR_PTR_CKGRPS08ENEMY = 0x9FDFC4
+ADDR_PTR_CKGRPS08HERO = 0x9FDFC8
+
+# Pointer to class values
+# Every object of a given class has the same pointer value at offset 0x0
+# Note that the class names can't be seen on PS2, but they can on Wii by following the pointer chain at offset 0x0
+CLASS_PTR_CKS08GAMESTRUCTURE = 0x00788330
+CLASS_PTR_CKHKS08HERO = 0x00786B60
+CLASS_PTR_CKS08ENEMYELEMENTPOOL = 0x00785760
+CLASS_PTR_CNODE = 0x00778AC0
+
+# Element Rando scratch addresses
+ADDR_FIRE_UNLOCKED = 0x00A6C6A0
+ADDR_ICE_UNLOCKED = 0x00A6C6A1
+ADDR_EARTH_UNLOCKED = 0x00A6C6A2
+ADDR_ELEC_UNLOCKED = 0x00A6C6A3
+ADDR_POISON_UNLOCKED = 0x00A6C6A4
+ADDR_SHADOW_UNLOCKED = 0x00A6C6A5
+ADDR_FEAR_UNLOCKED = 0x00A6C6A6
+ADDR_WIND_UNLOCKED = 0x00A6C6A7
+
+ALL_ELEMENTS_SET = {"Fire", "Electricity", "Ice", "Earth", "Poison", "Fear", "Wind", "Shadow"}
+
+ELEMENT_NAME_TO_UNLOCKED_ADDRESS = {
+    "Fire": ADDR_FIRE_UNLOCKED,
+    "Electricity": ADDR_ELEC_UNLOCKED,
+    "Ice": ADDR_ICE_UNLOCKED,
+    "Earth": ADDR_EARTH_UNLOCKED,
+    "Poison": ADDR_POISON_UNLOCKED,
+    "Fear": ADDR_FEAR_UNLOCKED,
+    "Wind": ADDR_WIND_UNLOCKED,
+    "Shadow": ADDR_SHADOW_UNLOCKED
+}
+
+ITEM_NAME_TO_ELEMENT = {
+    "Spyro's Fire": "Fire",
+    "Spyro's Electricity": "Electricity",
+    "Spyro's Ice": "Ice",
+    "Spyro's Earth": "Earth",
+    "Cynder's Poison": "Poison",
+    "Cynder's Fear": "Fear",
+    "Cynder's Wind": "Wind",
+    "Cynder's Shadow": "Shadow",
+}
+
 # Pointer to class values
 # Every object of a given class has the same pointer value at offset 0x0
 # Note that the class names can't be seen on PS2, but they can on Wii by following the pointer chain at offset 0x0
@@ -125,34 +171,20 @@ ARMOR_NAME_TO_ADDRESS = {
     "Cynder Tail Fury": ADDR_CYNDER_TAIL_FURY
 }
 
-LEVEL_ID_TO_INDEX = {
-    b"\x0A": 0,
-    b"\x14": 1,
-    b"\x1E": 2,
-    b"\x28": 3,
-    b"\x32": 4,
-    b"\x3C": 5,
-    b"\x50": 6,
-    b"\x5A": 7,
-    b"\x64": 8,
-    b"\x6E": 9,
-    b"\x78": 10, 
-}
-
-INDEX_TO_LEVEL_ID = {v: k for k, v in LEVEL_ID_TO_INDEX.items()}
-
-LEVEL_NAME_TO_ID = {
-    "Catacombs":          b"\x0A",
-    "Twilight Falls":     b"\x14",
-    "Valley of Avalar":   b"\x1E",
-    "Dragon City":        b"\x28",
-    "Attack of the Golem":b"\x32",
-    "Ruins of Warfang":   b"\x3C",
-    "The Dam":            b"\x50",
-    "The Destroyer":      b"\x5A",
-    "Burned Lands":       b"\x64",
-    "Floating Islands":   b"\x6E",
-    "Malefor's Lair":     b"\x78",
+LEVEL_ID_TO_NAME = {
+    #Matches the LVL### folders, 70 doesn't exist
+    0:      "Main Menu",
+    10:     "The Catacombs",
+    20:     "Twilight Falls",
+    30:     "Valley of Avalar",
+    40:     "Dragon City",
+    50:     "Attack of the Golem",
+    60:     "Ruins of Warfang",
+    80:     "The Dam",
+    90:     "The Destroyer",
+    100:    "Burned Lands",
+    110:    "Floating Islands",
+    120:    "Malefor's Lair"
 }
 
 ARMOR_NAME_TO_SCRATCH_ADDRESS = {
@@ -188,8 +220,90 @@ EXPECTED_GAME_ID = "SLUS-21820"
 ADDR_ARMOR_OWNERSHIP_CHECK_HOOK = 0x0039C2CC
 ADDR_ARMOR_OWNERSHIP_CHECK_ROUTINE = 0x01FFED38
 
+# Enemy data
+ENEMY_NAME_TO_ID = {
+    "Grublin":      b"\x00",
+    "Grublin Fly":  b"\x01",
+    "Hero Grublin": b"\x02",
+    "Crossbow Orc": b"\x03",
+    "Axe Orc":      b"\x04",
+    "Hero Orc":     b"\x05",
+    "Troll":        b"\x06",
+    "Shadow":       b"\x07",
+    "Wyvern":       b"\x08"
+}
 
-# ADDR_SPYRO_FLIGHT_MIRROR_HOOK_W1 = 
+LEVEL_NAME_TO_ELITES = {
+    "The Catacombs": ["Grublin"],
+    "Twilight Falls": ["Grublin Fly"],
+    "Valley of Avalar": ["Axe Orc"],
+    "Ruins of Warfang": ["Troll"],
+    "The Dam": ["Crossbow Orc"],
+    "Burned Lands": ["Hero Orc"],
+    "Floating Islands": ["Wyvern", "Hero Grublin"],
+}
+
+# These are base durabilities manually calculated in a way so that the masks can be broken in solo with lvl 1 elements, no armors and base mana
+# Masks are very weird and somehow take more damage from dmg/second attacks like Dragon Fire every frame (Elite itself takes normal damage)
+# They also take damage while the enemy is blocking, even if the enemy itself doesn't
+# Most Elites have green gem clusters nearby so these durabilities could be buffed a little
+ELITE_ELEMENT_TO_BASE_DURABILITY = {
+    "Fire": 900.0,
+    "Ice": 600.0,
+    "Earth": 500.0,
+    "Electricity": 200.0,
+    "Poison": 500.0,
+    "Shadow": 1000.0,
+    "Fear": 1000.0,
+    "Wind": 500.0
+}
+
+ELITE_ELEMENT_TO_MASK_COLOR = {
+    "Fire": bytes([0xAF, 0x4F, 0x00]),
+    "Ice": bytes([0x40, 0x7F, 0xFF]),
+    "Earth": bytes([0x00, 0x67, 0x22]),
+    "Electricity": bytes([0xAF, 0x96, 0x00]),
+    "Poison": bytes([0x55, 0x99, 0x00]),
+    "Shadow": bytes([0x00, 0x00, 0x24]),
+    "Fear": bytes([0x69, 0x00, 0x00]),
+    "Wind": bytes([0x69, 0x69, 0x8F])
+}
+
+# Unfortunately, most Elite glows do not have the correct flags that allow to display darker colors (they get more transparent instead)
+# These flags are read when deserializing the object, but editing those flags once the object has been deserialized does nothing,
+# which is a shame because otherwise the fix would have been very easy
+ELITE_ELEMENT_TO_GLOW_COLOR = {
+    "Fire": bytes([0xFF, 0xAF, 0x00, 0xBF]),
+    "Ice": bytes([0x7F, 0xCF, 0xFF, 0x7F]),
+    "Earth": bytes([0x00, 0xFF, 0x00, 0x7F]),
+    "Electricity": bytes([0xFF, 0xF4, 0x00, 0x8F]),
+    "Poison": bytes([0xBB, 0xFF, 0x00, 0x9F]),
+    "Shadow": bytes([0x00, 0x00, 0xFF, 0x9F]),   #Can't do black so blue it is
+    "Fear": bytes([0xFF, 0x00, 0x00, 0x8F]),
+    "Wind": bytes([0xFF, 0xFF, 0xFF, 0x9F])
+}
+
+ELITE_NAME_TO_GLOW_SIZE = {
+    "Grublin":      3.0,
+    "Grublin Fly":  3.0,
+    "Axe Orc":      5.0,
+    "Troll":        9.0,
+    "Crossbow Orc": 4.0,
+    "Hero Orc":     8.0
+}
+
+ELEMENT_NAME_TO_ID = {
+    "Fire": 0,
+    "Ice": 1,
+    "Earth": 2,
+    "Electricity": 3,
+    "Poison": 4,
+    "Shadow": 5,
+    "Fear": 6,
+    "Wind": 7,
+    "Purple Fury": 8,
+    "Dark Fury": 9
+}
 
 class MemoryReader:
     def __init__(self):
@@ -250,6 +364,17 @@ class MemoryReader:
     def write_bytes(self, ps2_address: int, data: bytes) -> bool:
         return self._safe_op(lambda: self.client.write_bytes(ps2_address, data)) is not None
 
+    def read_float(self, ps2_address: int) -> Optional[float]:
+        data = self.read_bytes(ps2_address, 4)
+        return struct.unpack("<f", data)[0] if data is not None else None
+
+    def write_float(self, ps2_address: int, value: float) -> bool:
+        return self._safe_op(lambda: self.client.write_float(ps2_address, value))
+
+    def read_pointer(self, ps2_address: int) -> Optional[int]:
+        address = self.read_u32(ps2_address)
+        return address if address is not None and address > 0x00100000 and address < 0x1FFFFFFD else None
+
     def get_game_id(self) -> Optional[str]:
         return self._safe_op(lambda: self.client.get_game_id())
 
@@ -270,6 +395,16 @@ class DotDContext(CommonContext):
             "Malefor's Lair"
         ]
 
+        self.elite_elements: dict[str, list[str]] = DEFAULT_ELITE_ELEMENTS.copy()
+
+        self.current_level = None
+        self.last_menu_value = b"\x00"
+
+        # Pointers to useful game objects, such as hero data
+        # The level watcher will update those pointers when needed
+        self.addr_spyro_hero = None
+        self.addr_cynder_hero = None
+
         # ---------------------------------------------------------------
         # Idempotency tracking (fix for !collect / reconnect double-apply)
         # ---------------------------------------------------------------
@@ -288,14 +423,26 @@ class DotDContext(CommonContext):
         # Item state variables
         self._session_blue_gems_at_connect: int = 0
         self._learned_fury: list[bool] = [True, True] # index 0 = Spyro, 1 = Cynder
+        self._learned_wall_climbing = True
+        self._learned_wall_running = True
 
         # Armor names received — set-based, naturally idempotent
         self._received_armor: Set[str] = set()
+        # Same with learned elements
+        self._learned_elements: Set[str] = ALL_ELEMENTS_SET
 
         # Default options values
         self.death_link_enabled = False
         self.player_dead = False
         self.learn_fury = 0
+        self.shuffled_elements = set()
+        self.learn_wall_climbing = False
+        self.learn_wall_running = False
+        self.random_elite_elements = 0
+
+        # Prepare to fire an async task to check for when wall climbing/running can be learned
+        self._wall_climbing_setter_task: Optional[asyncio.Task] = None
+        self._wall_running_learner_task: Optional[asyncio.Task] = None
 
         # Whether game-version check has passed
         self._game_version_ok: bool = False
@@ -339,6 +486,10 @@ class DotDContext(CommonContext):
     def on_package(self, cmd: str, args: dict):
         if cmd == "Connected":
             print("Connected to Archipelago!")
+
+            # Get shuffled elements before resetting item state since _reset_item_state() seeds _learned_elements from it.
+            self.shuffled_elements: Set = args["slot_data"].get("shuffled_elements", set())
+
             # -------------------------------------------------------
             # On (re)connection: reset cumulative counters and re-apply
             # ALL items from scratch so we always match the server's state.
@@ -373,6 +524,32 @@ class DotDContext(CommonContext):
             if self.learn_fury == 0:
                 self._learned_fury = [True, True]
 
+            # Wall Climbing
+            self.learn_wall_climbing = bool(args["slot_data"].get("learn_to_climb", 0))
+            if not self.learn_wall_climbing:
+                self._learned_wall_climbing = True
+
+            # Wall Running
+            self.learn_wall_running = bool(args["slot_data"].get("learn_to_wall_run", 0))
+            if not self.learn_wall_running:
+                self._learned_wall_running = True
+
+            # Handle Shuffled Elements
+            # Since elements can be already known on connection, 
+            for element in self._learned_elements:
+                scratch_addr = ELEMENT_NAME_TO_UNLOCKED_ADDRESS.get(element)
+                if scratch_addr:
+                    self.memory.write_bytes(scratch_addr, b"\x01")
+
+            # Random Elite Elements
+            self.random_elite_elements = args["slot_data"].get("random_elite_elements", 0)
+            elems = args["slot_data"].get("elite_elements")
+            if elems:
+                self.elite_elements = elems
+
+            # Set current level to None to reinit the level data / refetch pointers
+            self.current_level = None
+
         elif cmd == "ReceivedItems":
             try:
                 print("Receiving items...")
@@ -395,6 +572,7 @@ class DotDContext(CommonContext):
             except Exception as e:
                 print(f"on_package encountered exception: {e}")
 
+
     # ------------------------------------------------------------------
     # Item state — idempotent accumulation + flush
     # ------------------------------------------------------------------
@@ -409,6 +587,18 @@ class DotDContext(CommonContext):
         self._received_armor = set()
         self._num_chapters_unlocked = 0
         self._learned_fury = [False, False] # accumulate needs to restore the flags from false
+        self._learned_wall_climbing = False
+
+        # Handle Wall Running
+        self._learned_wall_running = False
+        if self._wall_running_learner_task and not self._wall_running_learner_task.done():
+            self._wall_running_learner_task.cancel()
+        self._wall_running_learner_task = None
+
+        # Seed with the non-shuffled baseline so a full resync starts from
+        # the correct "everything not in the shuffle pool" state
+        self._learned_elements = ALL_ELEMENTS_SET.difference(self.shuffled_elements)
+
 
     def _accumulate_item(self, item_name: str):
         """
@@ -418,9 +608,9 @@ class DotDContext(CommonContext):
         """
         if "Blue Gem" in item_name:
             self._total_blue_gems += 1
-        elif item_name == "Health Gem S":
+        elif item_name == "Small Health Gem":
             self.handle_receive_health_gem_s()   # instant, one-shot
-        elif item_name == "Mana Gem S":
+        elif item_name == "Small Mana Gem":
             self.handle_receive_mana_gem_s()
         elif "Red Life Crystal" in item_name:
             self._total_health_gems += 1
@@ -438,7 +628,33 @@ class DotDContext(CommonContext):
             elif "Dragon's" in item_name:
                 self._learned_fury[0] = True
                 self._learned_fury[1] = True
-        # Instant consumables (Health Gem S / Mana Gem S) are handled inside
+        elif "Elements" in item_name:
+            # Even if some are already unlocked from not being put into the shuffle pool,
+            # setting them all to 1 will do what needs to be done every time.
+            if "Spyro" in item_name:
+                self._learned_elements.add("Fire")
+                self._learned_elements.add("Electricity")
+                self._learned_elements.add("Ice")
+                self._learned_elements.add("Earth")
+            elif "Cynder" in item_name:
+                self._learned_elements.add("Poison")
+                self._learned_elements.add("Fear")
+                self._learned_elements.add("Wind")
+                self._learned_elements.add("Shadow")
+        elif item_name in ITEM_NAME_TO_ELEMENT:
+            # Item is an individual element
+            self._learned_elements.add(ITEM_NAME_TO_ELEMENT[item_name])
+        elif item_name == "Wall Climbing":
+            self._learned_wall_climbing = True
+        elif item_name == "Wall Running":
+            if not self._learned_wall_running:
+                self._learned_wall_running = True
+                if self._wall_running_learner_task and not self._wall_running_learner_task.done():
+                    self._wall_running_learner_task.cancel()
+                self._wall_running_learner_task = asyncio.create_task(wall_running_learner(self), name="wall running learner")
+            
+
+        # Instant consumables (Small Health Gem / Small Mana Gem) are handled inside
         # handle_receive_item because they are meant to be applied once per
         # receipt, not re-applied on reconnect.
 
@@ -512,9 +728,59 @@ class DotDContext(CommonContext):
         if self.learn_fury == 0:
             self._learned_fury = [True, True]
 
+        # Shuffled Elements: set scratch flags for everything we've received
+        for element in self._learned_elements:
+            scratch_addr = ELEMENT_NAME_TO_UNLOCKED_ADDRESS.get(element)
+            if scratch_addr:
+                self.memory.write_bytes(scratch_addr, b"\x01")
+
     # ------------------------------------------------------------------
     # Patches
     # ------------------------------------------------------------------
+    def install_element_rando(self):
+        routine = bytes([
+            0x00, 0x00, 0x11, 0x24,
+            0x24, 0x00, 0x44, 0x92,
+            0x02, 0x00, 0x80, 0x10,
+            0x21, 0x88, 0x23, 0x02,
+            0x04, 0x00, 0x31, 0x26,
+            0xA6, 0x00, 0x04, 0x3C,
+            0xA0, 0xC6, 0x84, 0x34,
+            0x21, 0x20, 0x91, 0x00,
+            0x00, 0x00, 0x84, 0x90,
+            0x02, 0x00, 0x80, 0x10,
+            0x00, 0x00, 0x00, 0x00,
+            0x70, 0x1D, 0x43, 0xAE,
+            0x13, 0xA7, 0x0D, 0x08,
+            0x01, 0x00, 0x11, 0x64
+        ])
+        hook1 = bytes([
+            0x80, 0xFE, 0x7F, 0x08,
+            0x00, 0x00, 0x03, 0x24
+        ])
+
+        hook2 = bytes([
+            0x80, 0xFE, 0x7F, 0x08,
+            0x25, 0x18, 0x80, 0x00
+        ])
+
+        hook3 = bytes([
+            0x80, 0xFE, 0x7F, 0x08,
+            0x00, 0x00, 0x00, 0x00
+        ])
+
+        hook4 = bytes([
+            0x00, 0x00, 0x03, 0x24,
+            0x80, 0xFE, 0x7F, 0x08
+        ])
+
+        self.memory.write_bytes(0x01FFFA00, routine)
+        self.memory.write_bytes(0x00369A2C, hook1)
+        self.memory.write_bytes(0x00369A34, hook2)
+        self.memory.write_bytes(0x00369A58, hook3)
+        self.memory.write_bytes(0x00369A64, hook3)
+        self.memory.write_bytes(0x00369A8C, hook3)
+        self.memory.write_bytes(0x00369BB4, hook4)
     def apply_patches(self):
         # ARMOR OWNERSHIP BYTE SPLIT
         self.memory.write_bytes(ADDR_ARMOR_OWNERSHIP_CHECK_ROUTINE, bytes([
@@ -545,6 +811,9 @@ class DotDContext(CommonContext):
         # BLUE GEMS GIVE 0 EXP PATCH
         self.memory.write_u32(0x009FEB14, 0)
 
+        # ELEMENT RANDO
+        self.install_element_rando()
+
         print("Game patches applied.")
 
     def restore_scratch_flags(self):
@@ -561,6 +830,12 @@ class DotDContext(CommonContext):
             if scratch_addr:
                 self.memory.write_bytes(scratch_addr, b"\x01")
 
+        # Restore element unlock scratch flags from received learned elements set
+        for element in self._learned_elements:
+            scratch_addr = ELEMENT_NAME_TO_UNLOCKED_ADDRESS.get(element)
+            if scratch_addr:
+                self.memory.write_bytes(scratch_addr, b"\x01")
+
         print("Scratch flags restored.")
 
     # ------------------------------------------------------------------
@@ -571,9 +846,9 @@ class DotDContext(CommonContext):
         self.kill_player()
 
     def kill_player(self):
-        if self.memory.read_bytes(ADDR_SPYRO_CONTROLLER, 1) == b"\x00":
+        if self.addr_spyro_hero and self.memory.read_bytes(self.addr_spyro_hero + 0x25, 1) == b"\x00":
             self.memory.write_u32(ADDR_SPYRO_CURRENT_HP, 0)
-        elif self.memory.read_bytes(ADDR_CYNDER_CONTROLLER, 1) == b"\x00":
+        elif self.addr_cynder_hero and self.memory.read_bytes(self.addr_cynder_hero + 0x25, 1) == b"\x01":
             self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, 0)
         self.player_dead = True
 
@@ -583,40 +858,36 @@ class DotDContext(CommonContext):
     def handle_receive_health_gem_s(self):
         # Base hp values are 300 and each health upgrade adds 100 max health in vanilla
         # Could be changed with a setting in the future by overwriting base and upgrade values in memory
-        if self.memory.read_bytes(ADDR_SPYRO_CONTROLLER, 1) == b"\x00":
-            spyro_max_hp = 300 + 100 * (health_gems_collected // 4)
-            spyro_hp = self.memory.read_u32(ADDR_SPYRO_CURRENT_HP) or 0
-            spyro_hp += 15
-            if spyro_hp > spyro_max_hp:
-                spyro_hp = spyro_max_hp
-            self.memory.write_u32(ADDR_SPYRO_CURRENT_HP, spyro_hp)
+        spyro_max_hp = 300 + 100 * (health_gems_collected // 4)
+        spyro_hp = self.memory.read_u32(ADDR_SPYRO_CURRENT_HP) or 0
+        spyro_hp += 15
+        if spyro_hp > spyro_max_hp:
+            spyro_hp = spyro_max_hp
+        self.memory.write_u32(ADDR_SPYRO_CURRENT_HP, spyro_hp)
 
-        if self.memory.read_bytes(ADDR_CYNDER_CONTROLLER, 1) == b"\x00":
-            cynder_max_hp = 300 + 100 * (health_gems_collected // 5)
-            cynder_hp = self.memory.read_u32(ADDR_CYNDER_CURRENT_HP) or 0
-            cynder_hp += 15
-            if cynder_hp > cynder_max_hp:
-                cynder_hp = cynder_max_hp
-            self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, cynder_hp)
+        cynder_max_hp = 300 + 100 * (health_gems_collected // 5)
+        cynder_hp = self.memory.read_u32(ADDR_CYNDER_CURRENT_HP) or 0
+        cynder_hp += 15
+        if cynder_hp > cynder_max_hp:
+            cynder_hp = cynder_max_hp
+        self.memory.write_u32(ADDR_CYNDER_CURRENT_HP, cynder_hp)
 
     def handle_receive_mana_gem_s(self):
         # Base mana values are 300 and each mana upgrade adds 100 max mana in vanilla
         # Could be changed with a setting in the future by overwriting base and upgrade values in memory
-        if self.memory.read_bytes(ADDR_SPYRO_CONTROLLER, 1) == b"\x00":
-            spyro_max_mana = 300 + 100 * (mana_gems_collected // 5)
-            spyro_mana = self.memory.read_u32(ADDR_SPYRO_CURRENT_MANA) or 0
-            spyro_mana += 15
-            if spyro_mana > spyro_max_mana:
-                spyro_mana = spyro_max_mana
-            self.memory.write_u32(ADDR_SPYRO_CURRENT_MANA, spyro_mana)
+        spyro_max_mana = 300 + 100 * (mana_gems_collected // 5)
+        spyro_mana = self.memory.read_u32(ADDR_SPYRO_CURRENT_MANA) or 0
+        spyro_mana += 15
+        if spyro_mana > spyro_max_mana:
+            spyro_mana = spyro_max_mana
+        self.memory.write_u32(ADDR_SPYRO_CURRENT_MANA, spyro_mana)
 
-        if self.memory.read_bytes(ADDR_CYNDER_CONTROLLER, 1) == b"\x00":
-            cynder_max_mana = 300 + 100 * (mana_gems_collected // 4)
-            cynder_mana = self.memory.read_u32(ADDR_CYNDER_CURRENT_MANA) or 0
-            cynder_mana += 15
-            if cynder_mana > cynder_max_mana:
-                cynder_mana = cynder_max_mana
-            self.memory.write_u32(ADDR_CYNDER_CURRENT_MANA, cynder_mana)
+        cynder_max_mana = 300 + 100 * (mana_gems_collected // 4)
+        cynder_mana = self.memory.read_u32(ADDR_CYNDER_CURRENT_MANA) or 0
+        cynder_mana += 15
+        if cynder_mana > cynder_max_mana:
+            cynder_mana = cynder_max_mana
+        self.memory.write_u32(ADDR_CYNDER_CURRENT_MANA, cynder_mana)
 
     # ------------------------------------------------------------------
     # Goal completion
@@ -627,6 +898,144 @@ class DotDContext(CommonContext):
             await self.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
             self._goal_sent = True
             print("Goal sent: Malefor defeated!")
+
+    # ------------------------------------------------------------------
+    # Hero pointers (dragon data in levels)
+    # ------------------------------------------------------------------
+    def update_hero_pointers(self) -> bool:
+        """
+        Retrieve the pointers for the CKHkS08Hero objects for Spyro and Cynder by following a pointer chain,
+        then update the saved pointers with the values read or None if the read didn't succeed.
+        """
+        success = False
+        # Base pointer to CKS08GrpHero is in a CKS08GameManager object, which is a global object (in GAME.KP2, so static)
+        # This pointer is always null on the main menu and during loading screens
+        # CKS08GameManager -> CKGrpS08Hero -> some group members stuff -> CKHkS08Hero (one for Spyro one for Cynder)
+        if (addr_ckgrps08hero := self.memory.read_pointer(ADDR_PTR_CKGRPS08HERO)):
+            if (addr_group_members := self.memory.read_pointer(addr_ckgrps08hero + 0x30)):
+                if ((addr_spyro := self.memory.read_pointer(addr_group_members))
+                        and (addr_cynder := self.memory.read_pointer(addr_group_members + 0x4))):
+                    # We check to make sure that these are indeed CKHkS08Hero objects by checking the class pointer value
+                    if (self.memory.read_u32(addr_spyro) == CLASS_PTR_CKHKS08HERO
+                            and self.memory.read_u32(addr_cynder) == CLASS_PTR_CKHKS08HERO):
+                        self.addr_spyro_hero = addr_spyro
+                        self.addr_cynder_hero = addr_cynder
+                        success = True
+                        print(f"Spyro CKHkS08Hero object start address: {hex(addr_spyro)} | Cynder CKHkS08Hero object start address: {hex(addr_cynder)}")
+
+        if not success:
+            # Overwrite whatever previous pointer value with None
+            self.addr_spyro_hero = None
+            self.addr_cynder_hero = None
+            print(f"Could not get Hero pointers.")
+        return success
+
+ # ------------------------------------------------------------------
+    # Elite Enemy stuff
+    # ------------------------------------------------------------------
+    def edit_elite_data(self, elite_name: str) -> bool:
+        """
+        Edit data for the specified Elite enemy by first following a pointer chain
+        to find the CKS08EnemyElementPool objects corresponding to the enemy type of the Elite,
+        and then calling edit_mask_data for each object.
+        On other versions, these objects are also used for decorative parts and armors that can be broken,
+        however those were removed on PS2 and only the Elite masks remain.
+        """
+        success = False
+        # Base pointer to CKS08GrpEnemy is in a CKS08GameManager object, which is a global object (in GAME.KP2, so static)
+        # This pointer is always null on the main menu, during loading screens and in Malefor's Lair (no enemies)
+        # CKS08GameManager -> CKGrpS08Enemy -> CKCommonBaseGroup -> CKGrpS08PoolEnemy -> CKS08EnemyElementPool[]
+        if (addr_ckgrps08enemy := self.memory.read_pointer(ADDR_PTR_CKGRPS08ENEMY)):
+            if (addr_ckcommonbasegroup := self.memory.read_pointer(addr_ckgrps08enemy + 0x2C)):
+                addr_ckgrps08poolenemy = self.memory.read_pointer(addr_ckcommonbasegroup + 0x18)
+                print(f"CKGrpS08Enemy address: {hex(addr_ckgrps08enemy)}")
+                print(f"CKCommonBaseGroup address: {hex(addr_ckcommonbasegroup)}")
+
+                while (addr_ckgrps08poolenemy and success == False):
+                    # Check enemy type and the array of CKS08EnemyElementPool objects
+                    if (self.memory.read_bytes(addr_ckgrps08poolenemy + 0x2C, 1) == ENEMY_NAME_TO_ID.get(elite_name)
+                            and (addr_array_cks08enemyelementpool := self.memory.read_pointer(addr_ckgrps08poolenemy + 0x3C))
+                            and (array_size := self.memory.read_u32(addr_ckgrps08poolenemy + 0x44)) is not None):
+                        print(f"Enemy Pool for {elite_name} found at {hex(addr_ckgrps08poolenemy)}")
+                        masks = []
+                        for i in range(array_size):
+                            if (mask := self.memory.read_pointer(addr_array_cks08enemyelementpool + (i * 4))):
+                                if self.memory.read_u32(mask) == CLASS_PTR_CKS08ENEMYELEMENTPOOL:
+                                    masks.append(mask)
+
+                        for i, mask in enumerate(masks):
+                            j = 0 if len(self.elite_elements.get(elite_name)) <= i else i
+                            if (success := self.edit_mask_data(mask, elite_name, self.elite_elements.get(elite_name)[j])) == False:
+                                break
+                    # Enemy pools have a pointer to the next pool (null if last)
+                    addr_ckgrps08poolenemy = self.memory.read_pointer(addr_ckgrps08poolenemy + 0x14)
+
+        if not success:
+            print(f"Could not properly edit Elite data for {elite_name}.")
+        return success
+
+    def edit_mask_data(self, addr_cks08enemyelementpool: int, elite_name: str, element_name: str) -> bool:
+        """
+        Overwrite data for the specified CKS08EnemeyElementPool (mask) based on the element.
+        This includes the durability, wrong element damage multiplier, element ID,
+        mask glow size and color and color of the mask geometry itself.
+        """
+        success = False
+        # CKS08EnemyElementPool -> CKS08EnemyElement[] -> CKS08EnemyElement -> CGlowNodeFX / CNode
+        # While technically an array of CKS08EnemyElement objects, the size is always 1, so we can just take the first element
+        if (addr_array := self.memory.read_pointer(addr_cks08enemyelementpool + 0x4)):
+            if (addr_cks08enemyelement := self.memory.read_pointer(addr_array)):
+                if (addr_cglownodefx := self.memory.read_pointer(addr_cks08enemyelement + 0x5C)):
+                    # Element ID
+                    self.memory.write_u32(addr_cks08enemyelementpool + 0x14, ELEMENT_NAME_TO_ID.get(element_name))
+                    print(f"Set element for mask at {hex(addr_cks08enemyelementpool)} to {element_name} for {elite_name}.")
+                        
+                    # Mask durability
+                    durability = ELITE_ELEMENT_TO_BASE_DURABILITY.get(element_name)
+                    self.memory.write_float(addr_cks08enemyelementpool + 0x18, durability)
+                    print(f"Set base durability to {durability} for {element_name} mask.")
+                    
+                    # Damage multiplier for wrong element and melee
+                    wrong_elem_multipler = durability / 10000
+                    self.memory.write_float(addr_cks08enemyelementpool + 0x1C, wrong_elem_multipler)
+                    print(f"Set wrong element damage multiplier to {wrong_elem_multipler} for {element_name} mask.")
+                    
+                    # Glow size and color
+                    # Unfortunately, the glows in Floating Islands are just too broken so we won't bother with those
+                    if elite_name != "Wyvern" and elite_name != "Hero Grublin":
+                        self.memory.write_bytes(addr_cglownodefx + 0x48, ELITE_ELEMENT_TO_GLOW_COLOR.get(element_name))
+                        self.memory.write_float(addr_cglownodefx + 0x40, ELITE_NAME_TO_GLOW_SIZE.get(elite_name))
+                        print(f"Edited glow data for {elite_name}'s {element_name} mask.")
+
+                    # Mask geometry color
+                    if (addr_cnode := self.memory.read_pointer(addr_cks08enemyelement + 0x4C)):
+                        success = self.edit_cnode_texture(addr_cnode, 0, ELITE_ELEMENT_TO_MASK_COLOR.get(element_name))
+
+        if not success:
+            print(f"Could not properly edit {element_name} mask data for {elite_name}.")
+        return success
+
+    def edit_cnode_texture(self, addr_cnode: int, ptr_texture: int, color: bytes = bytes([0xFF, 0xFF, 0xFF])) -> bool:
+        """
+        Edit the texture pointer of a CNode object and its color blend (defaults to white).
+        The game is perfectly fine with null texture pointers and will render a solid
+        color based on the color blend value.
+        """
+        success = False
+        # CNode -> CGeometry -> CMaterial -> something related to texture -> the texture
+        # The RGB value for the color blend is in the CGeometry object
+        if self.memory.read_u32(addr_cnode) == CLASS_PTR_CNODE:
+            if (addr_cgeometry := self.memory.read_pointer(addr_cnode + 0x1C)):
+                if (addr_cmaterial := self.memory.read_pointer(addr_cgeometry + 0x24)):
+                    if (addr_something_texture := self.memory.read_pointer(addr_cmaterial + 0x4)):
+                        self.memory.write_u32(addr_something_texture, ptr_texture)
+                        self.memory.write_bytes(addr_cgeometry + 0x20, color)
+                        success = True
+                        print(f"Set texture pointer {hex(ptr_texture)} and color {bytes.hex(color)} for CNode object at {hex(addr_cnode)}.")
+
+        if not success:
+            print(f"Could not edit CNode texture at address {hex(addr_cnode)}.")
+        return success
 
 
 # ---------------------------------------------------------------------------
@@ -674,7 +1083,7 @@ async def emulator_watchdog(ctx: DotDContext):
 async def location_watcher(ctx: DotDContext):
     while True:
         try:
-            if not ctx.memory.is_connected or not ctx._game_version_ok:
+            if not ctx.memory.is_connected or not ctx._game_version_ok or not ctx.current_level or ctx.current_level == "Main Menu":
                 await asyncio.sleep(1.0)
                 continue
 
@@ -770,7 +1179,7 @@ async def goal_watcher(ctx: DotDContext):
     """
     while True:
         try:
-            if ctx.slot and ctx.memory.is_connected and ctx._game_version_ok and not ctx._goal_sent:
+            if ctx.slot and ctx.memory.is_connected and ctx._game_version_ok and not ctx._goal_sent and ctx.current_level and ctx.current_level != "Main Menu":
                 data = ctx.memory.read_bytes(ADDR_FINAL_BOSS_DEFEATED, 1)
                 if data is not None and int.from_bytes(data, byteorder="little") == 1:
                     await ctx.send_goal_completion()
@@ -778,6 +1187,119 @@ async def goal_watcher(ctx: DotDContext):
             print(f"Error in goal_watcher: {e}")
         await asyncio.sleep(0.5)
 
+
+async def level_watcher(ctx: DotDContext):
+    """
+    Everything that needs to be edited once per level load is done here.
+    Once the level ID changes from FFFFFFFF to a valid level,
+    it means the game is done reading the level files and deserializing objects,
+    and the rest of the loading screen is spent just initializing states and stuff.
+    Data that was never meant to be overwritten once loaded is already loaded in memory at this point
+    and can be freely edited. Changes will last for as long as the level is loaded.
+    Pointers to dynamic objects that need to be used later such as the Hero data are also fetched here.
+    """
+    while True:
+        try:
+            if ctx.memory.is_connected and ctx._game_version_ok:
+                curr_level = ctx.memory.read_u32(ADDR_CURRENT_LEVEL)
+
+                if curr_level is None or curr_level == 0xFFFFFFFF:
+                    ctx.current_level = None
+                    ctx.addr_spyro_hero = None
+                    ctx.addr_cynder_hero = None
+                    if ctx._wall_climbing_setter_task and not ctx._wall_climbing_setter_task.done():
+                        ctx._wall_climbing_setter_task.cancel()
+                        try:
+                            await ctx._wall_climbing_setter_task
+                        except asyncio.CancelledError:
+                            pass
+                    await asyncio.sleep(0.1)
+                    continue
+
+                if (level_name := LEVEL_ID_TO_NAME.get(curr_level)) != ctx.current_level:
+                    ctx.current_level = level_name
+                    print(f"[Level Watcher] Current Level : {level_name}")
+
+                    # Update the necessary pointers
+                    if ctx.update_hero_pointers():
+
+                        # If wall climbing has not yet been learned, create a task to lock the ability
+                        if not ctx._learned_wall_climbing:
+                            if not ctx._wall_climbing_setter_task or ctx._wall_climbing_setter_task.done():
+                                ctx._wall_climbing_setter_task = asyncio.create_task(wall_climbing_setter(ctx), name="wall climbing setter")
+
+                        # If wall running has not yet been learned, set these bytes at offsets +0x9E0 from the base hero pointers to decimal 9,999
+                        # This will disable wall running for the rest of the level
+                        if not ctx._learned_wall_running:
+                            ctx.memory.write_float(ctx.addr_spyro_hero + 0x9E0, 9999.0)
+                            ctx.memory.write_float(ctx.addr_cynder_hero + 0x9E0, 9999.0)
+
+                    # Edit Elites data
+                    if ctx.random_elite_elements != 0 and (elites := LEVEL_NAME_TO_ELITES.get(level_name)):
+                        for elite_name in elites:
+                            ctx.edit_elite_data(elite_name)
+
+
+                if level_name == "Main Menu":
+                    menu_value = ctx.memory.read_bytes(ADDR_MENU_VALUE, 1) or b"\x00"
+
+                    # If the menu value is 0x9 (can see New game/Load game) or 0x12 (Load menu with all 5 save slots),
+                    # we know that the current data will be overwritten and some items will be lost
+                    # Once this menu value changes, we can write back the items to memory
+                    if ctx.last_menu_value == b"\x09" or ctx.last_menu_value == b"\x12":
+                        if menu_value != b"\x09" and menu_value != b"\x12":
+                            ctx._flush_item_state()
+                            print("[Level Watcher] Restored item state after New/Load game")
+
+                    ctx.last_menu_value = menu_value
+
+        except Exception as e:
+            print(f"Error in level_watcher: {e}")
+        await asyncio.sleep(1.0)
+
+
+async def wall_climbing_setter(ctx: DotDContext):
+    """
+    Periodically set the wall climb flag to 1 if not learned, otherwise set it to 0 and end the task.
+    """
+    while True:
+        if ctx.addr_spyro_hero is None or ctx.addr_cynder_hero is None:
+            await asyncio.sleep(0.1)
+            continue
+
+        if ctx.memory.read_u32(ctx.addr_spyro_hero) == CLASS_PTR_CKHKS08HERO and ctx.memory.read_u32(ctx.addr_cynder_hero) == CLASS_PTR_CKHKS08HERO:
+            # Restore wall climbing and end the task if learned
+            if ctx._learned_wall_climbing:
+                ctx.memory.write_bytes(ctx.addr_spyro_hero + 0x1678, b"\x00")
+                ctx.memory.write_bytes(ctx.addr_cynder_hero + 0x1678, b"\x00")
+                break
+
+            # Lock wall climbing
+            ctx.memory.write_bytes(ctx.addr_spyro_hero + 0x1678, b"\x01")
+            ctx.memory.write_bytes(ctx.addr_cynder_hero + 0x1678, b"\x01")
+        await asyncio.sleep(0.1)
+
+
+async def wall_running_learner(ctx: DotDContext):
+    """
+    Waits until the game signals it's safe to re-enable wall running
+    (Hero pointers exist and are not stale), then flips it to the vanilla of decimal 0.25. If a reset happens
+    mid-wait, _reset_item_state() cancels this task directly.
+    """
+    while True:
+        # Heroes don't exist on the main menu
+        if ctx.current_level == "Main Menu":
+            break
+
+        if ctx.addr_spyro_hero is not None and ctx.addr_cynder_hero is not None:
+            if ctx.memory.read_u32(ctx.addr_spyro_hero) == CLASS_PTR_CKHKS08HERO and ctx.memory.read_u32(ctx.addr_cynder_hero) == CLASS_PTR_CKHKS08HERO:
+                break
+
+        await asyncio.sleep(0.1)
+
+    # TODO: Write float instead unless u32 works.
+    ctx.memory.write_float(ctx.addr_spyro_hero + 0x9E0, 0.25)
+    ctx.memory.write_float(ctx.addr_cynder_hero + 0x9E0, 0.25)
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -803,6 +1325,7 @@ def main(*args: str):
         fury_task = asyncio.create_task(fury_points_setter(ctx), name="fury task")
         death_task = asyncio.create_task(death_watcher(ctx), name="death watcher")
         goal_task = asyncio.create_task(goal_watcher(ctx), name="goal watcher")
+        level_task = asyncio.create_task(level_watcher(ctx), name="level watcher")
         watchdog_task = asyncio.create_task(emulator_watchdog(ctx), name="emulator watchdog")
 
         if gui_enabled:
@@ -812,7 +1335,7 @@ def main(*args: str):
         await ctx.exit_event.wait()
 
         # Cancel all background tasks
-        for task in (watcher_task, health_gem_task, mana_gem_task, fury_task, death_task, goal_task, watchdog_task):
+        for task in (watcher_task, health_gem_task, mana_gem_task, fury_task, death_task, goal_task, level_task, watchdog_task):
             task.cancel()
             try:
                 await task

@@ -5,7 +5,7 @@ from typing import Any, Optional
 from worlds.AutoWorld import World
 
 # Imports of your world's files must be relative
-from . import items, locations, options, regions, rules, web_world
+from . import items, locations, options, regions, rules, web_world, elite_elements
 
 class DotDWorld(World):
     """
@@ -36,6 +36,8 @@ class DotDWorld(World):
     # For chapter order shuffling
     chapter_order: list[str]
 
+    # For Elite elements rando
+    elite_elements: dict[str, list[str]]
 
     # UniversalTracker Support
     ut_can_gen_without_yaml = True
@@ -46,6 +48,8 @@ class DotDWorld(World):
     
     def generate_early(self):
         self.handle_ut_yamless(None)
+        self.element_items: dict[str, str] = items.get_element_item_map(self)
+        elite_elements.get_elite_elements(self)
     
     def handle_ut_yamless(self, slot_data: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
         if not slot_data \
@@ -59,8 +63,15 @@ class DotDWorld(World):
 
         self.options.death_link.value = slot_data["death_link"]
         self.options.learn_fury.value = slot_data["learn_fury"]
+        self.options.shuffled_elements.value = set(slot_data["shuffled_elements"])
+        self.options.spyro_elements_handling.value = slot_data["spyro_elements_handling"]
+        self.options.spyro_elements_handling.value = slot_data["cynder_elements_handling"]
+        self.options.learn_to_climb.value = slot_data["learn_to_climb"]
+        self.options.learn_to_wall_run.value = slot_data["learn_to_wall_run"]
         self.options.shuffle_chapter_order.value = slot_data["shuffle_chapter_order"]
         self.chapter_order = [str(x) for x in slot_data["chapter_order"]]
+        self.options.random_elite_elements.value = slot_data["random_elite_elements"]
+        self.elite_elements = slot_data["elite_elements"]
 
         return slot_data
 
@@ -78,6 +89,8 @@ class DotDWorld(World):
     
     def create_items(self) -> None:
         items.create_all_items(self)
+        items.push_unshuffled_element_items(self)
+        items.push_available_ability_items(self)
 
     # Our world class must also have a create_item function that can create any one of our items by name at any time.
     # We also put this in a different file, teh same one that create_items is in.
@@ -98,16 +111,18 @@ class DotDWorld(World):
         # If you need access to the player's chosen options on the client side, there is a helper for that.
         slot_data = self.options.as_dict(
             "death_link",
-            # "disable_cheat_codes",
-            # "learn_to_fly",
-            # "learn_to_climb",
-            # "learn_to_wallrun",
-            # "learn_to_breathe"
             "shuffle_chapter_order",
-            "learn_fury"
+            "shuffled_elements",
+            "spyro_elements_handling",
+            "cynder_elements_handling",
+            "learn_to_climb",
+            "learn_to_wall_run",
+            "learn_fury",
+            "random_elite_elements"
         )
 
         slot_data["chapter_order"] = self.chapter_order
+        slot_data["elite_elements"] = self.elite_elements
 
         return slot_data
     
@@ -115,3 +130,9 @@ class DotDWorld(World):
         spoiler_handle.write(f"\nChapter Order ({self.multiworld.get_player_name(self.player)}):\n")
         for i, chapter in enumerate(self.chapter_order):
             spoiler_handle.write(f"  Chapter {i + 1}: {chapter}\n")
+
+        if self.options.random_elite_elements.value != 0:
+            spoiler_handle.write(f"\nElite Elements ({self.multiworld.get_player_name(self.player)}):\n")
+            for name, elements in self.elite_elements.items():
+                spoiler_handle.write(f"  {name}:")
+                spoiler_handle.write(f" {", ".join(elements)}\n")

@@ -6,6 +6,11 @@ from BaseClasses import ItemClassification, Location
 
 from . import items
 from .items import DotDItem
+from .regions import CATACOMBS_SUBREGION_LOCATIONS, TWILIGHT_FALLS_SUBREGION_LOCATIONS, \
+    VALLEY_OF_AVALAR_SUBREGION_LOCATIONS, DRAGON_CITY_SUBREGION_LOCATIONS, \
+    RUINS_OF_WARFANG_SUBREGION_LOCATIONS, THE_DAM_SUBREGION_LOCATIONS, \
+    THE_DESTROYER_SUBREGION_LOCATIONS, BURNED_LANDS_SUBREGION_LOCATIONS, \
+    FLOATING_ISLANDS_SUBREGION_LOCATIONS
 
 if TYPE_CHECKING:
     from .world import DotDWorld
@@ -66,7 +71,7 @@ LOCATION_NAME_TO_ID = {
     "DC Blue Gem - Behind Shadow Gate Near Doors": 40,
     "DC Blue Gem - Above Fire": 41,
     "DC Blue Gem - Near Torches Gate": 42,
-    "DC Blue Gem - Beginning of Remparts": 43,
+    "DC Blue Gem - Beginning of Ramparts": 43,
     "DC Blue Gem - Broken Stairs Top": 44,
     "DC Blue Gem - Broken Stairs Bottom": 45,
     "RoW Blue Gem - Left Path Platform Under Trap": 46,
@@ -130,7 +135,7 @@ LOCATION_NAME_TO_ID = {
     "VoA Health Gem - Hermit Area Tunnels": 105,
     "DC Health Gem - Behind Bottom Shadow Gate Near Fire": 106,
     "DC Health Gem - Torches": 107,
-    "DC Health Gem - Remparts Left": 108,
+    "DC Health Gem - Ramparts Left": 108,
     "AotG Health Gem": 109,
     "RoW Health Gem - Right Path Behind Vines": 110,
     "RoW Health Gem - Left Path Trap": 111,
@@ -150,7 +155,7 @@ LOCATION_NAME_TO_ID = {
     "VoA Mana Gem - Near Hermit": 205,
     "VoA Mana Gem - Island": 206,
     "DC Mana Gem - Near Pool Wheel": 207,
-    "DC Mana Gem - Remparts Right": 208,
+    "DC Mana Gem - Ramparts Right": 208,
     "AotG Mana Gem": 209,
     "RoW Mana Gem - Up Right Path After Falling Stones": 210,
     "RoW Mana Gem - Left Path Behind Vines": 211,
@@ -279,7 +284,7 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0xa3e74c: "DC Blue Gem - Behind Shadow Gate Near Doors",
     0xa3e770: "DC Blue Gem - Above Fire",
     0xa3e794: "DC Blue Gem - Near Torches Gate",
-    0xa3e7b8: "DC Blue Gem - Beginning of Remparts",
+    0xa3e7b8: "DC Blue Gem - Beginning of Ramparts",
     0xa3e7dc: "DC Blue Gem - Broken Stairs Top",
     0xa3e800: "DC Blue Gem - Broken Stairs Bottom",
     0xa3e890: "RoW Blue Gem - Left Path Platform Under Trap",
@@ -343,7 +348,7 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0xa3dd74: "VoA Health Gem - Hermit Area Tunnels",
     0xa3e5e4: "DC Health Gem - Behind Bottom Shadow Gate Near Fire",
     0xa3e608: "DC Health Gem - Torches",
-    0xa3e6e0: "DC Health Gem - Remparts Left",
+    0xa3e6e0: "DC Health Gem - Ramparts Left",
     0xa3e59c: "AotG Health Gem",
     0xa3e8d8: "RoW Health Gem - Right Path Behind Vines",
     0xa3e944: "RoW Health Gem - Left Path Trap",
@@ -363,7 +368,7 @@ LOCATION_FLAG_ADDRESS_TO_NAME = {
     0xa3de94: "VoA Mana Gem - Near Hermit",
     0xa3deb8: "VoA Mana Gem - Island",
     0xa3e5c0: "DC Mana Gem - Near Pool Wheel",
-    0xa3e704: "DC Mana Gem - Remparts Right",
+    0xa3e704: "DC Mana Gem - Ramparts Right",
     0xa3e578: "AotG Mana Gem",
     0xa3e86c: "RoW Mana Gem - Up Right Path After Falling Stones",
     0xa3e8fc: "RoW Mana Gem - Left Path Behind Vines",
@@ -483,22 +488,11 @@ def create_regular_locations(world: DotDWorld) -> None:
         ]
     )
 
+    # NOTE: Top-level locations should only contain locations that do not
+    # require any additional logic to access beyond having access to the chapter itself
     catacombs_locations = get_location_names_with_ids(
         [
-            "Catacombs Blue Gem - Weight Room",
-            "Catacombs Blue Gem - Waterfall Room Right",
-            "Catacombs Blue Gem - Waterfall Room Pillars 1",
-            "Catacombs Blue Gem - Waterfall Room Pillars 2",
-            "Catacombs Blue Gem - Waterfall Room Top Left",
-            "Catacombs Blue Gem - Waterfall Room Near Breakable Stones",
-            "Catacombs Blue Gem - Waterfall Room Under Right Breakable Stone",
-            "Catacombs Blue Gem - Waterfall Room Under Left Breakable Stone",
-            "Catacombs Blue Gem - Waterfall Room Save Point",
-            "Catacombs Blue Gem - Before Wind Horn",
-            "Catacombs Health Gem",
-            "Catacombs Mana Gem",
-            "Catacombs Elite",
-            "The Catacombs Cleared"
+            # Every location in Catacombs is blocked by at least the first set of vines
         ]
     )
 
@@ -507,60 +501,26 @@ def create_regular_locations(world: DotDWorld) -> None:
             "TF Blue Gem - In Waterfall",
             "TF Blue Gem - Bottom of Waterfall",
             "TF Blue Gem - Near Save Point",
-            "TF Blue Gem - Behind Vines",
             "TF Blue Gem - Before Wind Tunnel",
             "TF Blue Gem - Hero Grublin",
-            "TF Blue Gem - End of Level",
-            "TF Health Gem",
             "TF Mana Gem - Near Crystals",
             "TF Mana Gem - Before Wind Tunnel",
             "TF Armor Chest - Near Elite",
-            "TF Armor Chest - Behind Vines",
             "TF Elite",
-            "Objective Complete - Reach the Enchanted Forest",
-            "Twilight Falls Cleared"
+            # "TF Blue Gem - Behind Vines" and "TF Armor Chest - Behind Vines"
+            # now live in TF Beyond Vines.
+            # 
+            # "TF Health Gem", "TF Blue Gem - End of Level",
+            # "Twilight Falls Cleared", and "Objective Complete - Reach the Enchanted Forest"
+            # now live in TF End of Level.
         ]
     )
 
     valley_of_avalar_locations = get_location_names_with_ids(
         [
             "VoA Blue Gem - Cheetah Village",
-            "VoA Blue Gem - Near Meadow Cave",
-            "VoA Blue Gem - Above Meadow Cave",
-            "VoA Blue Gem - Near Cheetah Village",
-            "VoA Blue Gem - Near Elite",
-            "VoA Blue Gem - Under Platform Near Island",
-            "VoA Blue Gem - On Top of Platform Near Island",
-            "VoA Blue Gem - Island",
-            "VoA Blue Gem - Right of Big Waterfall",
-            "VoA Blue Gem - Left of Big Waterfall",
-            "VoA Blue Gem - Near Supply Cave",
-            "VoA Blue Gem - Behind Supply Cave",
-            "VoA Blue Gem - Near Raft",
-            "VoA Blue Gem - Above Passageway",
-            "VoA Blue Gem - Near Passageway Right",
-            "VoA Blue Gem - Between Passageway and Hidden Area",
-            "VoA Blue Gem - Hidden Area",
-            "VoA Blue Gem - Hermit Area Tunnels",
-            "VoA Blue Gem - Near Hermit",
-            "VoA Health Gem - Big Oak",
-            "VoA Health Gem - Near Elite",
-            "VoA Health Gem - Hermit Area Tunnels",
-            "VoA Mana Gem - Island",
-            "VoA Mana Gem - Near Hermit",
-            "VoA Mana Gem - Behind Gate",
-            "VoA Armor Chest - Above Meadow Cave",
-            "VoA Armor Chest - Meadow",
-            "VoA Armor Chest - Big Waterfall",
-            "VoA Armor Chest - Hermit",
-            "VoA Elite",
-            "Objective Complete - Save the Cheetah Village",
-            "Objective Complete - Find Meadow",
-            "Objective Complete - Find the Hermit",
-            "Objective Complete - Find the Supply Cave",
-            "Objective Complete - Find the Raft",
-            "Objective Complete - Bring the Raft to Meadow",
-            "Valley of Avalar Cleared"
+            "Objective Complete - Save the Cheetah Village"
+            # All other locations handled by subregions, as you cannot leave the Cheetah Village until it is saved
         ]
     )
 
@@ -569,30 +529,13 @@ def create_regular_locations(world: DotDWorld) -> None:
             "DC Blue Gem - Above Fire",
             "DC Blue Gem - Near Torches Gate",
             "DC Blue Gem - First Save Point",
-            "DC Blue Gem - Beginning of Remparts",
-            "DC Blue Gem - Behind Catapult",
-            "DC Blue Gem - Broken Stairs Top",
-            "DC Blue Gem - Broken Stairs Bottom",
-            "DC Blue Gem - Near Armor Chest",
-            "DC Blue Gem - Behind Shadow Gate Near Doors",
             "DC Health Gem - Behind Bottom Shadow Gate Near Fire",
             "DC Health Gem - Torches",
-            "DC Health Gem - Remparts Left",
             "DC Mana Gem - Near Pool Wheel",
-            "DC Mana Gem - Remparts Right",
             "DC Armor Chest - Behind Top Shadow Gate Near Fire",
-            "DC Armor Chest - Near Second Save Point",
-            "DC Armor Chest - Troll",
             "Objective Complete - Extinguish the Fire",
             "Objective Complete - Fill the Pool with Water",
-            "Objective Complete - Find a Bucket",
-            "Objective Complete - Protect the Catapult",
-            "Objective Complete - Destroy the Siege Tower (first)",
-            "Objective Complete - Escort the Artillery Mole to the Catapult",
-            "Objective Complete - Destroy the Siege Tower (second)",
-            "Objective Complete - Destroy the last two Siege Towers",
-            "Objective Complete - Close the City Gates",
-            "Dragon City Cleared"
+            "Objective Complete - Find a Bucket"
         ]
     )
 
@@ -613,44 +556,22 @@ def create_regular_locations(world: DotDWorld) -> None:
             "RoW Blue Gem - Right Path Between Malefor Mural and Lever",
             "RoW Blue Gem - Right Path Near Lever",
             "RoW Blue Gem - Right Path Near Tuning Forks",
-            "RoW Blue Gem - Up Right Path Near Key",
             "RoW Blue Gem - Left Path Small Pillar",
             "RoW Blue Gem - Left Path Long Platform",
             "RoW Blue Gem - Left Path Round Platform",
-            "RoW Blue Gem - Left Path Near Wallrun",
-            "RoW Blue Gem - Left Path Near Trap",
             "RoW Blue Gem - Left Path Platform Under Trap",
             "RoW Health Gem - Right Path Behind Vines",
-            "RoW Health Gem - Up Right Path Near Key",
-            "RoW Health Gem - Left Path Trap",
-            "RoW Mana Gem - Up Right Path After Falling Stones",
             "RoW Mana Gem - Left Path Behind Vines",
-            "RoW Mana Gem - Up Left Path Behind Shadow Gate",
-            "RoW Armor Chest - Up Right Path Under Earth Slab",
             "RoW Armor Chest - Left Path Near Key",
-            "RoW Elite",
-            "Objective Complete - Open the Gates to the Ruins of Warfang",
-            "Ruins of Warfang Cleared"
+            "RoW Elite"
         ]
     )
 
     the_dam_locations = get_location_names_with_ids(
         [
             "Dam Blue Gem - Middle",
-            "Dam Blue Gem - Near Save Point Left",
-            "Dam Blue Gem - Near Save Point Right",
-            "Dam Blue Gem - Near Earth Wall",
-            "Dam Blue Gem - Top",
             "Dam Health Gem - Behind Left Shadow Gate",
-            "Dam Health Gem - Behind Shadow Gate After Hero Orc",
             "Dam Mana Gem - Wooden Platform",
-            "Dam Mana Gem - Behind Earth Wall",
-            "Dam Armor Chest - Right Pillar",
-            "Dam Armor Chest - Hero Orc",
-            "Dam Elite",
-            "Objective Complete - Open the Floodgates to the Dam",
-            "Objective Complete - Open the Main Floodgate",
-            "The Dam Cleared"
         ]
     )
 
@@ -661,17 +582,8 @@ def create_regular_locations(world: DotDWorld) -> None:
             "Destroyer Blue Gem - Hip Near Dark Crystal",
             "Destroyer Blue Gem - Right Wrist Left",
             "Destroyer Blue Gem - Right Wrist Right",
-            "Destroyer Blue Gem - Under Right Armpit",
-            "Destroyer Blue Gem - Right Shoulder Left",
-            "Destroyer Blue Gem - Right Shoulder Right",
             "Destroyer Health Gem - Left Arm",
-            "Destroyer Health Gem - Right Arm",
-            "Destroyer Mana Gem - Right Arm",
-            "Destroyer Mana Gem - Mouth",
-            "Destroyer Armor Chest - Torso",
-            "Destroyer Armor Chest - Right Arm",
-            "Objective Complete - Destroy all the crystals of the Destroyer",
-            "The Destroyer Cleared"
+            "Destroyer Armor Chest - Torso"
         ]
     )
 
@@ -681,22 +593,13 @@ def create_regular_locations(world: DotDWorld) -> None:
             "BL Blue Gem - Before Third Ring Middle",
             "BL Blue Gem - Before Third Ring Right",
             "BL Blue Gem - After Third Ring",
-            "BL Blue Gem - Bridge Before Last Ring Right",
-            "BL Blue Gem - Bridge Before Last Ring Left",
-            "BL Blue Gem - Last Ring Area Far Left",
-            "BL Blue Gem - Last Ring Area Far Right",
-            "BL Blue Gem - After Last Ring Left",
-            "BL Blue Gem - After Last Ring Right",
             "BL Health Gem - Before Third Ring",
             "BL Health Gem - Elite",
             "BL Mana Gem - Hero Orc",
             "BL Mana Gem - Under Last Ring Area",
-            "BL Mana Gem - Under Bridge",
             "BL Armor Chest - Orcs",
             "BL Armor Chest - Behind Dark Crystal",
-            "BL Elite",
-            "Objective Complete - Reach the Volcano",
-            "Burned Lands Cleared"
+            "BL Elite"
         ]
     )
 
@@ -716,32 +619,44 @@ def create_regular_locations(world: DotDWorld) -> None:
             "FI Blue Gem - Lower Save Point Island",
             "FI Blue Gem - Wyvern Elite Island",
             "FI Blue Gem - Small Island Behind Wyvern Elite",
-            "FI Blue Gem - Troll Island Left",
-            "FI Blue Gem - Troll Island Top",
-            "FI Blue Gem - Hero Grublin Elite Island Top",
-            "FI Blue Gem - Hero Grublin Elite Island Middle",
             "FI Health Gem - Big Bonus Island",
-            "FI Health Gem - Hero Grublin Elite Island",
             "FI Mana Gem",
-            "FI Elite - Wyvern",
-            "FI Elite - Hero Grublin",
-            "Objective Complete - Torches Lit 8/8",
-            "Floating Islands Cleared"
+            "Objective Complete - Torches Lit 8/8"
         ]
     )
 
     gallery.add_locations(gallery_locations, DotDLocation)
-    catacombs.add_locations(catacombs_locations, DotDLocation)
-    twilight_falls.add_locations(twilight_falls_locations, DotDLocation)
-    valley_of_avalar.add_locations(valley_of_avalar_locations, DotDLocation)
-    dragon_city.add_locations(dragon_city_locations, DotDLocation)
-    attack_of_the_golem.add_locations(attack_of_the_golem_locations, DotDLocation)
-    ruins_of_warfang.add_locations(ruins_of_warfang_locations, DotDLocation)
-    the_dam.add_locations(the_dam_locations, DotDLocation)
-    the_destroyer.add_locations(the_destroyer_locations, DotDLocation)
-    burned_lands.add_locations(burned_lands_locations, DotDLocation)
-    floating_islands.add_locations(floating_islands_locations, DotDLocation)
 
+    # Place sub-region locations using the dicts from regions.py
+    catacombs.add_locations(catacombs_locations, DotDLocation)
+    place_subregion_locations(world, CATACOMBS_SUBREGION_LOCATIONS)
+
+    twilight_falls.add_locations(twilight_falls_locations, DotDLocation)
+    place_subregion_locations(world, TWILIGHT_FALLS_SUBREGION_LOCATIONS)
+
+    valley_of_avalar.add_locations(valley_of_avalar_locations, DotDLocation)
+    place_subregion_locations(world, VALLEY_OF_AVALAR_SUBREGION_LOCATIONS)
+
+    dragon_city.add_locations(dragon_city_locations, DotDLocation)
+    place_subregion_locations(world, DRAGON_CITY_SUBREGION_LOCATIONS)
+
+    attack_of_the_golem.add_locations(attack_of_the_golem_locations, DotDLocation)
+
+    ruins_of_warfang.add_locations(ruins_of_warfang_locations, DotDLocation)
+    place_subregion_locations(world, RUINS_OF_WARFANG_SUBREGION_LOCATIONS)
+
+    the_dam.add_locations(the_dam_locations, DotDLocation)
+    place_subregion_locations(world, THE_DAM_SUBREGION_LOCATIONS)
+
+    the_destroyer.add_locations(the_destroyer_locations, DotDLocation)
+    place_subregion_locations(world, THE_DESTROYER_SUBREGION_LOCATIONS)
+
+    burned_lands.add_locations(burned_lands_locations, DotDLocation)
+    place_subregion_locations(world, BURNED_LANDS_SUBREGION_LOCATIONS)
+
+    floating_islands.add_locations(floating_islands_locations, DotDLocation)
+    place_subregion_locations(world, FLOATING_ISLANDS_SUBREGION_LOCATIONS)
+    
 
 def create_events(world: DotDWorld) -> None:
     from worlds.generic.Rules import set_rule
@@ -770,3 +685,9 @@ def create_events(world: DotDWorld) -> None:
             lambda state: state.has("Cynder's Fury", player))
     # else: no rule required. Both dragons can automatically build fury
     malefors_lair.locations.append(victory_location)
+
+
+def place_subregion_locations(world: DotDWorld, subregion_map: dict[str, list[str]]) -> None:
+    for region_name, location_names in subregion_map.items():
+        region = world.get_region(region_name)
+        region.add_locations(get_location_names_with_ids(location_names), DotDLocation)

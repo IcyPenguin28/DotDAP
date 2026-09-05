@@ -34,18 +34,25 @@ ITEM_NAME_TO_ID = {
     "Cynder Bracers Silver": 20,
     "Cynder Bracers Gold": 21,
     "Cynder Bracers Fury": 22,
-    "Health Gem S": 23, # This is the small gem that the player can pick up to recover their HP
-    "Mana Gem S": 24,   # Likewise, but for Mana
-    "Dragons' Flight": 25,
-    "Dragons' Elements": 26,
-    "Spyro's Elements": 27,
-    "Cynder's Elements": 28,
-    "Wall Climbing": 29,
-    "Wall Running": 30,
-    "Progressive Chapter Unlock": 31,
-    "Dragon's Fury": 32,
-    "Spyro's Fury": 33,
-    "Cynder's Fury": 34
+    "Small Health Gem": 23, # This is the small gem that the player can pick up to recover their HP
+    "Small Mana Gem": 24,   # Likewise, but for Mana
+    "Spyro's Elements": 25,
+    "Cynder's Elements": 26,
+    "Wall Climbing": 27,
+    "Wall Running": 28,
+    "Progressive Chapter Unlock": 29,
+    "Dragon's Fury": 30,
+    "Spyro's Fury": 31,
+    "Cynder's Fury": 32,
+    "Spyro's Fire": 33,
+    "Spyro's Electricity": 34,
+    "Spyro's Ice": 35,
+    "Spyro's Earth": 36,
+    "Cynder's Poison": 37,
+    "Cynder's Fear": 38,
+    "Cynder's Wind": 39,
+    "Cynder's Shadow": 40,
+    "Chain Swinging": 41
 }
 
 # Items should havea defined default classification.
@@ -73,16 +80,36 @@ DEFAULT_ITEM_CLASSIFICATIONS = {
     "Cynder Bracers Silver": ItemClassification.useful,
     "Cynder Bracers Gold": ItemClassification.useful,
     "Cynder Bracers Fury": ItemClassification.useful,
-    "Health Gem S": ItemClassification.filler,
-    "Mana Gem S": ItemClassification.filler,
-    "Dragons' Flight": ItemClassification.progression,
-    "Dragons' Elements": ItemClassification.progression,
+    "Small Health Gem": ItemClassification.filler,
+    "Small Mana Gem": ItemClassification.filler,
     "Spyro's Elements": ItemClassification.progression,
     "Cynder's Elements": ItemClassification.progression,
     "Progressive Chapter Unlock": ItemClassification.progression,
     "Dragon's Fury": ItemClassification.progression,
     "Spyro's Fury": ItemClassification.progression,
-    "Cynder's Fury": ItemClassification.progression
+    "Cynder's Fury": ItemClassification.progression,
+    "Spyro's Fire": ItemClassification.progression,
+    "Spyro's Electricity": ItemClassification.progression,
+    "Spyro's Ice": ItemClassification.progression,
+    "Spyro's Earth": ItemClassification.progression,
+    "Cynder's Poison": ItemClassification.progression,
+    "Cynder's Fear": ItemClassification.progression,
+    "Cynder's Wind": ItemClassification.progression,
+    "Cynder's Shadow": ItemClassification.progression,
+    "Chain Swinging": ItemClassification.progression,
+    "Wall Climbing": ItemClassification.progression,
+    "Wall Running": ItemClassification.progression
+}
+
+ELEMENT_TO_ITEM_NAME = {
+    "Fire": "Spyro's Fire",
+    "Electricity": "Spyro's Electricity",
+    "Ice": "Spyro's Ice",
+    "Earth": "Spyro's Earth",
+    "Poison": "Cynder's Poison",
+    "Fear": "Cynder's Fear",
+    "Wind": "Cynder's Wind",
+    "Shadow": "Cynder's Shadow",
 }
 
 # Each Item instance must correctly report to the "game" it belongs to.
@@ -95,7 +122,7 @@ class DotDItem(Item):
 # For now, let's make a function that returns the name of a random filler item in here in items.py.
 def get_random_filler_item_name(world: DotDWorld) -> str:
     # NOTE: Use world.random when need RNG
-    return "Health Gem S" if world.random.randint(0, 1) == 0 else "Mana Gem S"
+    return "Small Health Gem" if world.random.randint(0, 1) == 0 else "Small Mana Gem"
 
 def create_item_with_correct_classification(world: DotDWorld, name: str) -> DotDItem:
     # Our world class must have a create_item() function that can create any of our items by name at any time.
@@ -153,21 +180,10 @@ def create_all_items(world: DotDWorld) -> None:
     itempool += keys
     
     # NOTE: Some items may only exist if the player enables certain options
-    # if world.options.learn_to_fly:
-    #     itempool.append(world.create_item("Dragons' Flight"))
-    # if world.options.learn_to_climb:
-    #     itempool.append(world.create_item("Wall Climbing"))
-    # if world.options.learn_to_wall_run:
-    #     itempool.append(world.create_item("Wall Running"))
-    # if world.options.learn_to_breathe.current_key == "both_together":
-    #     itempool.append(world.create_item("Dragons' Elements"))
-    # elif world.options.learn_to_breathe.current_key == "both_separate":
-    #     itempool.append(world.create_item("Spyro's Elements"))
-    #     itempool.append(world.create_item("Cynder's Elements"))
-    # elif world.options.learn_to_breathe.current_key == "spyro":
-    #     itempool.append(world.create_item("Spyro's Elements"))
-    # elif world.options.learn_to_breathe.current_key == "cynder":
-    #     itempool.append(world.create_item("Cynder's Elements"))
+    if world.options.learn_to_climb:
+        itempool.append(world.create_item("Wall Climbing"))
+    if world.options.learn_to_wall_run:
+        itempool.append(world.create_item("Wall Running"))
     if world.options.learn_fury.current_key == "both_together":
         itempool.append(world.create_item("Dragon's Fury"))
     elif world.options.learn_fury.current_key == "both_separate":
@@ -177,6 +193,25 @@ def create_all_items(world: DotDWorld) -> None:
         itempool.append(world.create_item("Spyro's Fury"))
     elif world.options.learn_fury.current_key == "cynder":
         itempool.append(world.create_item("Cynder's Fury"))
+
+    # Handle adding shuffled elements to item pool
+    if world.options.shuffled_elements.value:
+        # Elements have been shuffled, determine how they're being handled and by which dragon.
+        # Handle Spyro Elements
+        if any(element in world.options.shuffled_elements.value for element in ["Fire", "Electricity", "Ice", "Earth"]):
+            if world.options.spyro_elements_handling.current_key == "individual":
+                for element in world.options.shuffled_elements.value.intersection({"Fire", "Electricity", "Ice", "Earth"}):
+                    itempool.append(world.create_item(ELEMENT_TO_ITEM_NAME[element]))
+            else:
+                itempool.append(world.create_item("Spyro's Elements"))
+        # Handle Cynder Elements
+        if any(element in world.options.shuffled_elements.value for element in ["Poison", "Fear", "Wind", "Shadow"]):
+            if world.options.cynder_elements_handling.current_key == "individual":
+                for element in world.options.shuffled_elements.value.intersection({"Poison", "Fear", "Wind", "Shadow"}):
+                    itempool.append(world.create_item(ELEMENT_TO_ITEM_NAME[element]))
+            else:
+                itempool.append(world.create_item("Cynder's Elements"))
+
     
     # Archipelago requires that each world submits as many locations as it submits items.
     # This is where we can use our filler and trap items.
@@ -205,3 +240,57 @@ def create_all_items(world: DotDWorld) -> None:
     # With our world's itempool finalized, we now need to submit it to the multiworld itempool.
     # This is how the generator actually knows about the existence of our items.
     world.multiworld.itempool += itempool
+
+
+def push_unshuffled_element_items(world: DotDWorld) -> None:
+    """
+    Elements not in the shuffle pool are available from the start of the
+    game. Grant their individual item via push_precollected rather than
+    leaving no item for them at all. This keeps state.has() checks in
+    rules.py/regions.py truthful regardless of which elements were shuffled.
+    """
+    shuffled = world.options.shuffled_elements.value
+    for element, item_name in ELEMENT_TO_ITEM_NAME.items():
+        if element not in shuffled:
+            world.multiworld.push_precollected(world.create_item(item_name))
+
+def push_available_ability_items(world: DotDWorld) -> None:
+    """
+    Non-elemental abilites that are not gated with the "Learn" settings are available from the start of the
+    game. Grant their individual item via push_precollected rather than
+    leaving no item for them at all. This keeps state.has() checks in
+    rules.py/regions.py truthful regardless of which abilities are gated.
+    """
+    climb_gated = bool(world.options.learn_to_climb.value)
+    run_gated = bool(world.options.learn_to_wall_run.value)
+
+    if not climb_gated:
+        world.multiworld.push_precollected(world.create_item("Wall Climbing"))
+    if not run_gated:
+        world.multiworld.push_precollected(world.create_item("Wall Running"))
+
+
+def get_element_item_map(world: DotDWorld) -> dict[str, str]:
+    """
+    Maps each bare element name (as used in options/valid_keys/client) to the
+    actual item name that must be held to be considered as having it.
+    - Not shuffled -> always the individual item name (it's precollected).
+    - Shuffled + individual handling -> the individual item name.
+    - Shuffled + all-at-once handling -> the dragon's grouped "Elements" item.
+    """
+    shuffled = world.options.shuffled_elements.value
+    spyro_individual = world.options.spyro_elements_handling.current_key == "individual"
+    cynder_individual = world.options.cynder_elements_handling.current_key == "individual"
+
+    element_items: dict[str, str] = {}
+    for element, individual_name in ELEMENT_TO_ITEM_NAME.items():
+        is_spyro_element = element in ("Fire", "Electricity", "Ice", "Earth")
+        use_individual = spyro_individual if is_spyro_element else cynder_individual
+        grouped_name = "Spyro's Elements" if is_spyro_element else "Cynder's Elements"
+
+        if element in shuffled and not use_individual:
+            element_items[element] = grouped_name
+        else:
+            element_items[element] = individual_name
+
+    return element_items
